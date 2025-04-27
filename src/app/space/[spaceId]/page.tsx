@@ -228,13 +228,15 @@ export default function SpaceDetailPage({
         points: Number(newActionPoints),
       };
 
-      setActions((prevActions) => [...prevActions, newAction]);
+      setActions((prevActions) => {
+        const updatedActions = [...prevActions, newAction];
+        localStorage.setItem(`actions-${spaceId}`, JSON.stringify(updatedActions));
+        return updatedActions;
+      });
       setNewActionName('');
       setNewActionDescription('');
       setNewActionPoints(1);
       setIsCreateActionModalOpen(false);
-
-      localStorage.setItem(`actions-${spaceId}`, JSON.stringify([...actions, newAction]));
 
       toast({
         title: 'Action Created!',
