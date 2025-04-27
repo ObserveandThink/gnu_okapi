@@ -48,6 +48,10 @@ interface LogEntry {
   timestamp: Date;
   actionName: string;
   points: number;
+  type: 'action' | 'clockIn' | 'clockOut';
+  clockInTime?: Date;
+  clockOutTime?: Date;
+  minutesClockedIn?: number;
 }
 
 interface WasteEntry {
@@ -85,6 +89,7 @@ export default function SpaceDetailPage({
   const [isCreateActionModalOpen, setIsCreateActionModalOpen] = useState(false);
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [apPerHour, setApPerHour] = useState(0);
   const [isAddWasteModalOpen, setIsAddWasteModalOpen] = useState(false);
@@ -143,6 +148,15 @@ export default function SpaceDetailPage({
   }, [isClockedIn, startTime, recalculateApPerHour]);
 
   const handleActionClick = (action: Action, multiplier: number) => {
+    if (!isClockedIn) {
+      toast({
+        title: 'Not Clocked In!',
+        description: 'You must clock in before you can log actions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const pointsEarned = action.points * multiplier;
 
     const now = new Date();
@@ -151,6 +165,7 @@ export default function SpaceDetailPage({
       timestamp: now,
       actionName: action.name,
       points: pointsEarned,
+      type: 'action',
     };
 
     addLogEntry(logEntry);
@@ -198,8 +213,17 @@ export default function SpaceDetailPage({
   };
 
   const handleClockIn = () => {
+    const now = new Date();
     setIsClockedIn(true);
-    setStartTime(new Date());
+    setStartTime(now);
+    const logEntry: LogEntry = {
+      id: uuidv4(),
+      timestamp: now,
+      actionName: 'Clock In',
+      points: 0,
+      type: 'clockIn',
+    };
+    addLogEntry(logEntry);
     toast({
       title: 'Clocked In!',
       description: 'You are now clocked in. Start earning those points!',
@@ -207,7 +231,26 @@ export default function SpaceDetailPage({
   };
 
   const handleClockOut = () => {
+    const now = new Date();
     setIsClockedIn(false);
+    setEndTime(now);
+
+    if (startTime) {
+      const timeDifference = now.getTime() - startTime.getTime();
+      const minutesClockedIn = Math.floor(timeDifference / (1000 * 60));
+
+      const logEntry: LogEntry = {
+        id: uuidv4(),
+        timestamp: now,
+        actionName: 'Clock Out',
+        points: 0,
+        type: 'clockOut',
+        clockInTime: startTime,
+        clockOutTime: now,
+        minutesClockedIn: minutesClockedIn,
+      };
+      addLogEntry(logEntry);
+    }
     setStartTime(null);
     toast({
       title: 'Clocked Out!',
@@ -313,9 +356,27 @@ export default function SpaceDetailPage({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {actions.map((action) => (
               <div key={action.id} className="flex space-x-2">
-                <Button variant="secondary" onClick={() => handleActionClick(action, 1)}>{action.name} (+{action.points * 1} points)</Button>
-                <Button variant="secondary" onClick={() => handleActionClick(action, 2)}>{action.name} (+{action.points * 2} points)</Button>
-                <Button variant="secondary" onClick={() => handleActionClick(action, 5)}>{action.name} (+{action.points * 5} points)</Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => handleActionClick(action, 1)}
+                  disabled={!isClockedIn}
+                >
+                  {action.name} (+{action.points * 1} points)
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => handleActionClick(action, 2)}
+                  disabled={!isClockedIn}
+                >
+                  {action.name} (+{action.points * 2} points)
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => handleActionClick(action, 5)}
+                  disabled={!isClockedIn}
+                >
+                  {action.name} (+{action.points * 5} points)
+                </Button>
               </div>
             ))}
           </div>
@@ -340,11 +401,28 @@ export default function SpaceDetailPage({
         <div className="mt-8 w-full max-w-4xl">
           <h2 className="text-2xl font-bold mb-4">Log</h2>
           <ScrollArea className="max-h-40">
-            {logEntries.map((logEntry) => (
-              <div key={logEntry.id} className="mb-2">
-                {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
-              </div>
-            ))}
+            {logEntries.map((logEntry) => {
+              if (logEntry.type === 'action') {
+                return (
+                  <div key={logEntry.id} className="mb-2">
+                    {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
+                  </div>
+                );
+              } else if (logEntry.type === 'clockIn') {
+                return (
+                  <div key={logEntry.id} className="mb-2">
+                    Clocked in at {formatTime(logEntry.timestamp)}
+                  </div>
+                );
+              } else if (logEntry.type === 'clockOut' && logEntry.clockInTime && logEntry.clockOutTime && logEntry.minutesClockedIn !== undefined) {
+                return (
+                  <div key={logEntry.id} className="mb-2">
+                    Clocked out at {formatTime(logEntry.timestamp)}. Total time clocked in: {logEntry.minutesClockedIn} minutes.
+                  </div>
+                );
+              }
+              return null;
+            })}
           </ScrollArea>
         </div>
 
@@ -443,4 +521,3 @@ export default function SpaceDetailPage({
       </div>
   );
 }
-
