@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
-import { SpaceProvider } from './space/[spaceId]/page';
 
 interface Space {
   id: string;
@@ -44,13 +43,13 @@ export default function Home() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl">
         {spaces.map((space) => (
-          <div key={space.id} className="bg-card rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow duration-300" onClick={() => handleSpaceClick(space.id)}>
+          <div className="bg-card rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow duration-300" onClick={() => handleSpaceClick(space.id)} key={space.id}>
             <h2 className="text-2xl font-bold mb-2">{space.name}</h2>
             {space.beforeImage && (
-                <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-40 object-cover" />
+              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-40 object-cover" />
             )}
             {space.afterImage && (
-                <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-40 object-cover" />
+              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-40 object-cover" />
             )}
             <p className="text-foreground">{space.description}</p>
             {space.goal && <p className="text-foreground">Goal: {space.goal}</p>}
