@@ -121,6 +121,11 @@ export default function SpaceDetailPage({
         localStorage.removeItem(`wasteEntries-${spaceId}`);
       }
     }
+
+    const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
+    if (storedLogEntries) {
+      setLogEntries(JSON.parse(storedLogEntries));
+    }
   }, [spaceId]);
 
  const loadActions = useCallback(() => {
@@ -184,6 +189,10 @@ export default function SpaceDetailPage({
    useEffect(() => {
     localStorage.setItem(`wasteEntries-${spaceId}`, JSON.stringify(wasteEntries));
   }, [wasteEntries, spaceId]);
+
+  useEffect(() => {
+    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
+  }, [logEntries, spaceId]);
 
   const handleActionClick = (action: Action, multiplier: number) => {
     const pointsEarned = action.points * multiplier;
@@ -495,3 +504,4 @@ export default function SpaceDetailPage({
     </div>
   );
 }
+
