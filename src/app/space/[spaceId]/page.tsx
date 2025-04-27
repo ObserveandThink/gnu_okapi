@@ -96,8 +96,6 @@ export default function SpaceDetailPage({
   const [selectedWasteCategories, setSelectedWasteCategories] = useState<string[]>([]);
 
   const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
-  const [newWasteAmount, setNewWasteAmount] = useState(0);
-  const [newWasteUnit, setNewWasteUnit] = useState('kg');
 
   useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
@@ -108,19 +106,10 @@ export default function SpaceDetailPage({
         setSpace(foundSpace);
       }
     }
+  }, [spaceId]);
 
-    const storedActions = localStorage.getItem(`actions-${spaceId}`);
-    if (storedActions) {
-      try {
-        const parsedActions: Action[] = JSON.parse(storedActions);
-        setActions(parsedActions);
-      } catch (error) {
-        console.error("Error parsing actions from localStorage:", error);
-        setActions([]);
-        localStorage.removeItem(`actions-${spaceId}`);
-      }
-    }
-
+  useEffect(() => {
+      loadActions();
      const storedWaste = localStorage.getItem(`wasteEntries-${spaceId}`);
     if (storedWaste) {
       try {
@@ -130,6 +119,20 @@ export default function SpaceDetailPage({
         console.error("Error parsing waste data from localStorage:", error);
         setWasteEntries([]);
         localStorage.removeItem(`wasteEntries-${spaceId}`);
+      }
+    }
+  }, [spaceId]);
+
+ const loadActions = useCallback(() => {
+    const storedActions = localStorage.getItem(`actions-${spaceId}`);
+    if (storedActions) {
+      try {
+        const parsedActions: Action[] = JSON.parse(storedActions);
+        setActions(parsedActions);
+      } catch (error) {
+        console.error("Error parsing actions from localStorage:", error);
+        setActions([]);
+        localStorage.removeItem(`actions-${spaceId}`);
       }
     }
   }, [spaceId]);
@@ -230,6 +233,9 @@ export default function SpaceDetailPage({
       setNewActionDescription('');
       setNewActionPoints(1);
       setIsCreateActionModalOpen(false);
+
+      localStorage.setItem(`actions-${spaceId}`, JSON.stringify([...actions, newAction]));
+
       toast({
         title: 'Action Created!',
         description: `Action "${newAction.name}" has been successfully created.`,
@@ -284,13 +290,6 @@ export default function SpaceDetailPage({
     });
   };
 
-  const calculateTotalWastePoints = () => {
-    return selectedWasteCategories.reduce((total, categoryId) => {
-      const category = timwoodsCategories.find((cat) => cat.id === categoryId);
-      return category ? total + category.points : total;
-    }, 0);
-  };
-
  const handleSaveWaste = () => {
     const now = new Date();
     const newWasteEntries = selectedWasteCategories.map(categoryId => {
@@ -317,10 +316,6 @@ export default function SpaceDetailPage({
     setIsAddWasteModalOpen(false);
     setSelectedWasteCategories([]);
   };
-
-
-  const totalWastePoints = wasteEntries.reduce((acc, entry) => acc + entry.points, 0);
-  const wasteProgress = Math.min((totalWastePoints / 40) * 100, 100); // Assuming 40 is the max progress
 
 
   if (!space) {
@@ -382,11 +377,11 @@ export default function SpaceDetailPage({
         <div className="mt-8 w-full max-w-4xl">
           <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
             <Button onClick={handleAddWasteClick}>Add Waste</Button>
-            <Progress value={wasteProgress} className="h-4" />
+            <Progress value={0} className="h-4" />
           <ScrollArea className="max-h-40">
             {wasteEntries.map((wasteEntry) => (
               <div key={wasteEntry.id} className="mb-2">
-                {wasteEntry.type} - Points: {wasteEntry.points} recorded at {formatTime(wasteEntry.timestamp)}
+                {wasteEntry.type} - Points: {wasteEntry.points}
               </div>
             ))}
           </ScrollArea>
@@ -482,8 +477,8 @@ export default function SpaceDetailPage({
                   </Button>
                   ))}
               </div>
-              <Progress value={wasteProgress} className="h-4" />
-              <p>Total Waste Points: {calculateTotalWastePoints()}</p>
+              <Progress value={0} className="h-4" />
+              <p>Total Waste Points: {0}</p>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="secondary" onClick={handleCancelWaste}>
