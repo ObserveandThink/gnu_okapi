@@ -20,6 +20,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface Space {
   id: string;
@@ -250,30 +257,61 @@ export default function SpaceDetailPage({
         Back to Home
       </Button>
 
-      {isCreateActionModalOpen && (
-        <div className="fixed top-0 left-0 w-full h-full bg-background bg-opacity-80 flex items-center justify-center">
-          <AlertDialog>
-      <AlertDialogTrigger asChild>
-      <Button>Edit Profile</Button>
-    </AlertDialogTrigger>
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-        <AlertDialogDescription>
-          This action cannot be undone. This will permanently delete your account
-          and remove your data from our servers.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel>Cancel</AlertDialogCancel>
-        <AlertDialogAction>Continue</AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-    </AlertDialog>
-          
-          
-        </div>
-      )}
+      <Dialog open={isCreateActionModalOpen} onOpenChange={setIsCreateActionModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Action</DialogTitle>
+            <DialogDescription>
+              Add a new action to this space.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                type="text"
+                id="name"
+                value={newActionName}
+                onChange={(e) => setNewActionName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={newActionDescription}
+                onChange={(e) => setNewActionDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="points" className="text-right">
+                Points
+              </Label>
+              <Input
+                type="number"
+                id="points"
+                value={newActionPoints}
+                onChange={(e) => setNewActionPoints(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="secondary" onClick={handleCancelAction}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleSaveAction}>
+              Create
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
