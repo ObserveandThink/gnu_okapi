@@ -20,11 +20,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import React from 'react';
 import { useSpaceContext } from '@/contexts/SpaceContext';
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 
 interface Space {
   id: string;
@@ -94,6 +94,8 @@ export default function SpaceDetailPage({
   const [apPerHour, setApPerHour] = useState(0);
   const [isAddWasteModalOpen, setIsAddWasteModalOpen] = useState(false);
   const [selectedWasteCategories, setSelectedWasteCategories] = useState<string[]>([]);
+  const [totalWastePoints, setTotalWastePoints] = useState(0);
+  const [totalClockedInTime, setTotalClockedInTime] = useState(0);
 
 
   useEffect(() => {
@@ -216,6 +218,7 @@ export default function SpaceDetailPage({
     const now = new Date();
     setIsClockedIn(true);
     setStartTime(now);
+
     const logEntry: LogEntry = {
       id: uuidv4(),
       timestamp: now,
@@ -224,6 +227,7 @@ export default function SpaceDetailPage({
       type: 'clockIn',
     };
     addLogEntry(logEntry);
+
     toast({
       title: 'Clocked In!',
       description: 'You are now clocked in. Start earning those points!',
@@ -239,6 +243,8 @@ export default function SpaceDetailPage({
       const timeDifference = now.getTime() - startTime.getTime();
       const minutesClockedIn = Math.floor(timeDifference / (1000 * 60));
 
+      setTotalClockedInTime(prevTime => prevTime + minutesClockedIn);
+
       const logEntry: LogEntry = {
         id: uuidv4(),
         timestamp: now,
@@ -252,6 +258,7 @@ export default function SpaceDetailPage({
       addLogEntry(logEntry);
     }
     setStartTime(null);
+
     toast({
       title: 'Clocked Out!',
       description: 'You are now clocked out. Time to take a break!',
@@ -282,8 +289,10 @@ export default function SpaceDetailPage({
 
  const handleSaveWaste = async () => {
     const now = new Date();
+    let newWastePoints = 0;
     const newWasteEntries = selectedWasteCategories.map(categoryId => {
       const category = timwoodsCategories.find(cat => cat.id === categoryId);
+      newWastePoints += category?.points || 0;
       return {
         id: uuidv4(),
         timestamp: now,
@@ -296,6 +305,7 @@ export default function SpaceDetailPage({
       await addWasteEntry(wasteEntry);
     }
 
+    setTotalWastePoints(prevPoints => prevPoints + newWastePoints);
     setSelectedWasteCategories([]);
     setIsAddWasteModalOpen(false);
 
@@ -310,13 +320,46 @@ export default function SpaceDetailPage({
     setSelectedWasteCategories([]);
   };
 
+    useEffect(() => {
+    let total = 0;
+    wasteEntries.forEach(wasteEntry => {
+      total += wasteEntry.points;
+    });
+    setTotalWastePoints(total);
+  }, [wasteEntries]);
+
 
   if (!space) {
     return <div>Space not found</div>;
   }
 
+  const formatElapsedTime = (timeInSeconds: number): string => {
+    const hours = Math.floor(timeInSeconds / 3600);
+    const minutes = Math.floor((timeInSeconds % 3600) / 60);
+    const seconds = timeInSeconds % 60;
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+
   return (
       <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
+        <div className="w-full max-w-4xl flex justify-between items-center mb-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold">Dashboard</h2>
+            <p>Total Clocked In Time: {formatElapsedTime(elapsedTime)}</p>
+            <p>Total Points: {totalPoints.toFixed(2)}</p>
+            <p>AP per Hour: {apPerHour.toFixed(2)}</p>
+            <p>Waste Count: {totalWastePoints}</p>
+          </div>
+          <div>
+            {!isClockedIn ? (
+              <Button variant="outline" size="lg" onClick={handleClockIn}>Clock In</Button>
+            ) : (
+              <Button variant="outline" size="lg" onClick={handleClockOut}>Clock Out</Button>
+            )}
+          </div>
+        </div>
         <Card className="w-full max-w-4xl card-shadow">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
@@ -336,20 +379,6 @@ export default function SpaceDetailPage({
             </div>
           </CardContent>
         </Card>
-
-        <div className="mt-8 w-full max-w-4xl flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold">Total Points: {totalPoints.toFixed(2)}</h2>
-            <p className="text-lg">AP per Hour: {apPerHour.toFixed(2)}</p>
-          </div>
-          <div>
-            {!isClockedIn ? (
-              <Button variant="outline" size="lg" onClick={handleClockIn}>Clock In</Button>
-            ) : (
-              <Button variant="outline" size="lg" onClick={handleClockOut}>Clock Out</Button>
-            )}
-          </div>
-        </div>
 
         <div className="mt-8 w-full max-w-4xl">
           <h2 className="text-3xl font-bold mb-4">Actions</h2>
@@ -396,6 +425,7 @@ export default function SpaceDetailPage({
                 </div>
               ))}
             </ScrollArea>
+              <p>Total Waste Points: {totalWastePoints}</p>
           </div>
 
         <div className="mt-8 w-full max-w-4xl">
@@ -506,7 +536,6 @@ export default function SpaceDetailPage({
                     ))}
                 </div>
                 <Progress value={0} className="h-4" />
-                <p>Total Waste Points: {0}</p>
             </div>
             <div className="flex justify-end space-x-2">
               <Button variant="secondary" onClick={handleCancelWaste}>
