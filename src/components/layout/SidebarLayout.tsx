@@ -60,3 +60,4 @@ const SidebarGroupLabel = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
 };
+
