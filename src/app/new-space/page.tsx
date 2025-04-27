@@ -14,6 +14,15 @@ export default function NewSpacePage() {
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
 
+    if (!name) {
+        toast({
+            title: "Error",
+            description: "Space name is required.",
+            variant: "destructive",
+        });
+        return;
+    }
+
     const id = uuidv4();
     const newSpace = { id, name, description, goal };
 
@@ -31,7 +40,7 @@ export default function NewSpacePage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+    <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-background">
       <div className="nes-container with-title is-rounded">
         <p className="title">Create New Space</p>
         <form onSubmit={onSubmit} className="space-y-4">

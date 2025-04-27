@@ -116,20 +116,20 @@ export default function SpaceDetailPage({
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen py-8">
+    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background">
       <div className="nes-container with-title is-rounded">
-        <p className="title">{space.name}</p>
+        <p className="title text-shadow">{space.name}</p>
         <p>{space.description}</p>
         {space.goal && <p>Goal: {space.goal}</p>}
       </div>
 
       <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-2">Actions</h2>
+        <h2 className="text-3xl font-bold mb-2 text-shadow">Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((action) => (
             <button
               key={action.id}
-              className="nes-btn is-primary"
+              className="nes-btn is-primary text-xl"
               onClick={() => handleActionClick(action)}
             >
               {action.name} (+{action.points} points)
@@ -137,16 +137,16 @@ export default function SpaceDetailPage({
           ))}
         </div>
 
-        <button className="nes-btn is-success mt-4" onClick={handleCreateAction}>
+        <button className="nes-btn is-success mt-4 text-xl" onClick={handleCreateAction}>
           Create New Action
         </button>
       </div>
 
       <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-2">Total Points:</h2>
-        <p className="text-lg">{totalPoints}</p>
+        <h2 className="text-3xl font-bold mb-2 text-shadow">Total Points:</h2>
+        <p className="text-2xl">{totalPoints}</p>
       </div>
-        <button className="nes-btn mt-4" onClick={handleBack}>
+        <button className="nes-btn mt-4 text-xl" onClick={handleBack}>
             Back to Home
         </button>
 

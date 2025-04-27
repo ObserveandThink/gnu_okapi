@@ -30,12 +30,12 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen py-8">
-      <h1 className="text-4xl font-bold mb-4">Welcome to OkapiFlow</h1>
-      <p className="text-lg mb-8">
+    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background">
+      <h1 className="text-4xl font-bold mb-4 text-shadow">Welcome to OkapiFlow</h1>
+      <p className="text-lg mb-8 text-shadow">
         Get started by creating your first Space!
       </p>
-      <button className="nes-btn is-success" onClick={handleCreateSpace}>
+      <button className="nes-btn is-success text-2xl" onClick={handleCreateSpace}>
         Create New Space
       </button>
 
