@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -36,6 +37,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
+import React from 'react';
 
 interface Space {
   id: string;
@@ -132,6 +134,9 @@ interface SpaceContextProps {
   setLogEntries: React.Dispatch<React.SetStateAction<LogEntry[]>>;
   wasteEntries: WasteEntry[];
   setWasteEntries: React.Dispatch<React.SetStateAction<WasteEntry[]>>;
+  addAction: (action: Action) => Promise<void>;
+  addLogEntry: (logEntry: LogEntry) => Promise<void>;
+  addWasteEntry: (wasteEntry: WasteEntry) => Promise<void>;
 }
 
 const SpaceContext = createContext<SpaceContextProps | undefined>(undefined);
@@ -202,10 +207,10 @@ const SpaceProvider = ({ spaceId, children }: { spaceId: string, children: React
             await addItem(db, 'wasteEntries', { ...wasteEntry, spaceId });
             setWasteEntries(prevWasteEntries => [wasteEntry, ...prevWasteEntries]);
         }
-    }, [db, spaceId]);
+    }, [db]);
 
   return (
-    <SpaceContext.Provider value={{ actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries }}>
+    <SpaceContext.Provider value={{ actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry }}>
       {children}
     </SpaceContext.Provider>
   );
@@ -220,7 +225,7 @@ export default function SpaceDetailPage({
   const { spaceId } = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries } = useSpaceContext();
+  const { actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
   const [totalPoints, setTotalPoints] = useState(0);
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
@@ -287,15 +292,6 @@ export default function SpaceDetailPage({
 
   const handleActionClick = (action: Action, multiplier: number) => {
     const pointsEarned = action.points * multiplier;
-    setActions(prevActions => {
-      return prevActions.map(existingAction => {
-        if (existingAction.id === action.id) {
-          return { ...existingAction, points: action.points }; // Update the points if it's the clicked action
-        } else {
-          return existingAction; // Otherwise, keep the existing action
-        }
-      });
-    });
 
     const now = new Date();
     const logEntry: LogEntry = {
@@ -305,11 +301,8 @@ export default function SpaceDetailPage({
       points: pointsEarned,
     };
 
-    // setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
-    setLogEntries(prevLogEntries => {
-      const updatedLogEntries = [logEntry, ...prevLogEntries];
-      return updatedLogEntries;
-    });
+    addLogEntry(logEntry);
+
     toast({
       title: 'Action Logged!',
       description: `You earned ${pointsEarned} points for completing "${action.name}".`,
@@ -331,14 +324,12 @@ export default function SpaceDetailPage({
         points: Number(newActionPoints),
       };
 
-      setActions((prevActions) => {
-        const updatedActions = [...prevActions, newAction];
-        return updatedActions;
-      });
-        setNewActionName('');
-        setNewActionDescription('');
-        setNewActionPoints(1);
-        setIsCreateActionModalOpen(false);
+      await addAction(newAction);
+
+      setNewActionName('');
+      setNewActionDescription('');
+      setNewActionPoints(1);
+      setIsCreateActionModalOpen(false);
 
       toast({
         title: 'Action Created!',
@@ -394,7 +385,7 @@ export default function SpaceDetailPage({
     });
   };
 
- const handleSaveWaste = () => {
+ const handleSaveWaste = async () => {
     const now = new Date();
     const newWasteEntries = selectedWasteCategories.map(categoryId => {
       const category = timwoodsCategories.find(cat => cat.id === categoryId);
@@ -406,7 +397,10 @@ export default function SpaceDetailPage({
       };
     });
 
-   setWasteEntries(prevWasteEntries => [...newWasteEntries, ...prevWasteEntries]);
+    for (const wasteEntry of newWasteEntries) {
+      await addWasteEntry(wasteEntry);
+    }
+
     setSelectedWasteCategories([]);
     setIsAddWasteModalOpen(false);
 
@@ -599,3 +593,4 @@ export default function SpaceDetailPage({
     </SpaceProvider>
   );
 }
+
