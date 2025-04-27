@@ -54,6 +54,13 @@ interface LogEntry {
   points: number;
 }
 
+interface WasteEntry {
+  id: string;
+  timestamp: Date;
+  amount: number;
+  unit: string;
+}
+
 export default function SpaceDetailPage({
   params,
 }: {
@@ -74,6 +81,10 @@ export default function SpaceDetailPage({
   const [apPerHour, setApPerHour] = useState(0);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
 
+  const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
+  const [newWasteAmount, setNewWasteAmount] = useState(0);
+  const [newWasteUnit, setNewWasteUnit] = useState('kg');
+
   useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
     if (storedSpaces) {
@@ -86,8 +97,26 @@ export default function SpaceDetailPage({
 
     const storedActions = localStorage.getItem(`actions-${spaceId}`);
     if (storedActions) {
-      const parsedActions: Action[] = JSON.parse(storedActions);
-      setActions(parsedActions);
+      try {
+        const parsedActions: Action[] = JSON.parse(storedActions);
+        setActions(parsedActions);
+      } catch (error) {
+        console.error("Error parsing actions from localStorage:", error);
+        setActions([]);
+        localStorage.removeItem(`actions-${spaceId}`);
+      }
+    }
+
+    const storedWaste = localStorage.getItem(`waste-${spaceId}`);
+    if (storedWaste) {
+      try {
+        const parsedWaste: WasteEntry[] = JSON.parse(storedWaste);
+        setWasteEntries(parsedWaste);
+      } catch (error) {
+        console.error("Error parsing waste data from localStorage:", error);
+        setWasteEntries([]);
+        localStorage.removeItem(`waste-${spaceId}`);
+      }
     }
   }, [spaceId]);
 
@@ -104,11 +133,6 @@ export default function SpaceDetailPage({
       setApPerHour(0);
     }
   }, [totalPoints, elapsedTime]);
-
-  useEffect(() => {
-    recalculateTotalPoints();
-    recalculateApPerHour();
-  }, [actions, recalculateTotalPoints, recalculateApPerHour]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -135,6 +159,10 @@ export default function SpaceDetailPage({
   useEffect(() => {
     localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
   }, [actions, spaceId]);
+
+  useEffect(() => {
+    localStorage.setItem(`waste-${spaceId}`, JSON.stringify(wasteEntries));
+  }, [wasteEntries, spaceId]);
 
   const handleActionClick = (action: Action, multiplier: number) => {
     const pointsEarned = action.points * multiplier;
@@ -224,6 +252,28 @@ export default function SpaceDetailPage({
     router.push('/');
   };
 
+  const handleAddWaste = () => {
+    const id = uuidv4();
+    const now = new Date();
+    const newWasteEntry: WasteEntry = {
+      id: uuidv4(),
+      timestamp: now,
+      amount: newWasteAmount,
+      unit: newWasteUnit,
+    };
+
+    setWasteEntries(prevWasteEntries => [newWasteEntry, ...prevWasteEntries]);
+    setNewWasteAmount(0);
+    setNewWasteUnit('kg');
+
+    toast({
+      title: 'Waste Added!',
+      description: `Added ${newWasteAmount} ${newWasteUnit} of waste.`,
+    });
+  };
+
+  const totalWaste = wasteEntries.reduce((acc, entry) => acc + entry.amount, 0);
+
   if (!space) {
     return <div>Space not found</div>;
   }
@@ -279,6 +329,36 @@ export default function SpaceDetailPage({
         <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
           Create New Action
         </Button>
+      </div>
+
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
+        <div className="flex items-center space-x-4 mb-4">
+          <Input
+            type="number"
+            placeholder="Amount"
+            value={newWasteAmount}
+            onChange={(e) => setNewWasteAmount(Number(e.target.value))}
+          />
+          <select
+            value={newWasteUnit}
+            onChange={(e) => setNewWasteUnit(e.target.value)}
+            className="border rounded p-2"
+          >
+            <option value="kg">kg</option>
+            <option value="lbs">lbs</option>
+            <option value="tons">tons</option>
+          </select>
+          <Button onClick={handleAddWaste}>Add Waste</Button>
+        </div>
+        <p className="text-lg">Total Waste: {totalWaste} kg</p>
+        <ScrollArea className="max-h-40">
+          {wasteEntries.map((wasteEntry) => (
+            <div key={wasteEntry.id} className="mb-2">
+              {wasteEntry.amount} {wasteEntry.unit} recorded at {formatTime(wasteEntry.timestamp)}
+            </div>
+          ))}
+        </ScrollArea>
       </div>
 
       <div className="mt-8 w-full max-w-4xl">
