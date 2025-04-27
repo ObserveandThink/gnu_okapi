@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -71,14 +71,27 @@ export default function SpaceDetailPage({
     if (storedActions) {
       const parsedActions: Action[] = JSON.parse(storedActions);
       setActions(parsedActions);
-
     }
   }, [spaceId]);
 
+  const recalculateTotalPoints = useCallback(() => {
+    const newTotalPoints = actions.reduce((acc, action) => acc + action.points, 0);
+    setTotalPoints(newTotalPoints);
+  }, [actions]);
+
+  const recalculateApPerHour = useCallback(() => {
+    if (elapsedTime > 0) {
+      const hours = elapsedTime / 3600;
+      setApPerHour(totalPoints / hours);
+    } else {
+      setApPerHour(0);
+    }
+  }, [totalPoints, elapsedTime]);
+
   useEffect(() => {
-    localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
     recalculateTotalPoints();
-  }, [actions, spaceId]);
+    recalculateApPerHour();
+  }, [actions, recalculateTotalPoints, recalculateApPerHour]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -101,25 +114,19 @@ export default function SpaceDetailPage({
   }, [isClockedIn, startTime]);
 
   useEffect(() => {
-    recalculateApPerHour();
-  }, [totalPoints, elapsedTime]);
-
-  const recalculateTotalPoints = () => {
-    const newTotalPoints = actions.reduce((acc, action) => acc + action.points, 0);
-    setTotalPoints(newTotalPoints);
-  };
-
-  const recalculateApPerHour = () => {
-    if (elapsedTime > 0) {
-      const hours = elapsedTime / 3600;
-      setApPerHour(totalPoints / hours);
-    } else {
-      setApPerHour(0);
-    }
-  };
+    localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
+  }, [actions, spaceId]);
 
   const handleActionClick = (action: Action) => {
-    setTotalPoints((prevPoints) => prevPoints + action.points);
+    setActions(prevActions => {
+      return prevActions.map(existingAction => {
+        if (existingAction.id === action.id) {
+          return { ...existingAction, points: action.points }; // Update the points if it's the clicked action
+        } else {
+          return existingAction; // Otherwise, keep the existing action
+        }
+      });
+    });
     toast({
       title: 'Action Logged!',
       description: `You earned ${action.points} points for completing "${action.name}".`,
