@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import React from 'react';
 import { useSpaceContext } from '@/contexts/SpaceContext';
+import { Textarea } from "@/components/ui/textarea";
 
 interface Space {
   id: string;
@@ -442,3 +443,4 @@ export default function SpaceDetailPage({
       </div>
   );
 }
+
