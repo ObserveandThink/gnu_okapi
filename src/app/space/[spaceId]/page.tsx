@@ -24,7 +24,6 @@ import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import React from 'react';
 import { useSpaceContext } from '@/contexts/SpaceContext';
-import { SpaceProvider } from '@/contexts/SpaceContext';
 
 interface Space {
   id: string;
@@ -273,7 +272,6 @@ export default function SpaceDetailPage({
   }
 
   return (
-    <SpaceProvider spaceId={spaceId}>
       <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
         <Card className="w-full max-w-4xl card-shadow">
           <CardHeader>
@@ -442,6 +440,5 @@ export default function SpaceDetailPage({
           </DialogContent>
         </Dialog>
       </div>
-    </SpaceProvider>
   );
 }
