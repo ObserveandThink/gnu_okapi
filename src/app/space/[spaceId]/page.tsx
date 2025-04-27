@@ -225,6 +225,7 @@ export default function SpaceDetailPage({
       actionName: 'Clock In',
       points: 0,
       type: 'clockIn',
+      spaceId: spaceId,
     };
     addLogEntry(logEntry);
 
@@ -242,8 +243,10 @@ export default function SpaceDetailPage({
     if (startTime) {
       const timeDifference = now.getTime() - startTime.getTime();
       const minutesClockedIn = Math.floor(timeDifference / (1000 * 60));
+        const secondsClockedIn = Math.floor(timeDifference / (1000));
 
       setTotalClockedInTime(prevTime => prevTime + minutesClockedIn);
+        localStorage.setItem(`totalClockedInTime-${spaceId}`, JSON.stringify(totalClockedInTime + minutesClockedIn));
 
       const logEntry: LogEntry = {
         id: uuidv4(),
@@ -254,6 +257,7 @@ export default function SpaceDetailPage({
         clockInTime: startTime,
         clockOutTime: now,
         minutesClockedIn: minutesClockedIn,
+          spaceId: spaceId,
       };
       addLogEntry(logEntry);
     }
@@ -298,6 +302,7 @@ export default function SpaceDetailPage({
         timestamp: now,
         type: category?.name || 'Unknown',
         points: category?.points || 0,
+          spaceId: spaceId,
       };
     });
 
@@ -328,6 +333,13 @@ export default function SpaceDetailPage({
     setTotalWastePoints(total);
   }, [wasteEntries]);
 
+  useEffect(() => {
+      const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
+      if (storedTotalClockedInTime) {
+          setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
+      }
+  }, [spaceId]);
+
 
   if (!space) {
     return <div>Space not found</div>;
@@ -347,7 +359,7 @@ export default function SpaceDetailPage({
         <div className="w-full max-w-4xl flex justify-between items-center mb-4">
           <div className="text-center">
             <h2 className="text-2xl font-bold">Dashboard</h2>
-            <p>Total Clocked In Time: {formatElapsedTime(elapsedTime)}</p>
+            <p>Total Clocked In Time: {formatElapsedTime(totalClockedInTime * 60)}</p>
             <p>Total Points: {totalPoints.toFixed(2)}</p>
             <p>AP per Hour: {apPerHour.toFixed(2)}</p>
             <p>Waste Count: {totalWastePoints}</p>
@@ -550,3 +562,4 @@ export default function SpaceDetailPage({
       </div>
   );
 }
+
