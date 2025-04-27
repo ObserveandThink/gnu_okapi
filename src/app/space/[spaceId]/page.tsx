@@ -10,6 +10,8 @@ interface Space {
   name: string;
   description?: string;
   goal?: string;
+    beforeImage?: string | null;
+    afterImage?: string | null;
 }
 
 interface Action {
@@ -116,20 +118,26 @@ export default function SpaceDetailPage({
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background">
-      <div className="nes-container with-title is-rounded">
-        <p className="title text-shadow">{space.name}</p>
-        <p>{space.description}</p>
-        {space.goal && <p>Goal: {space.goal}</p>}
+    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
+      <div className="bg-card rounded-lg p-6 w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-4">{space.name}</h1>
+          {space.beforeImage && (
+              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-40 object-cover" />
+          )}
+          {space.afterImage && (
+              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-40 object-cover" />
+          )}
+        <p className="text-foreground">{space.description}</p>
+        {space.goal && <p className="text-foreground">Goal: {space.goal}</p>}
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-3xl font-bold mb-2 text-shadow">Actions</h2>
+      <div className="mt-8 w-full max-w-md">
+        <h2 className="text-3xl font-bold mb-2">Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((action) => (
             <button
               key={action.id}
-              className="nes-btn is-primary text-xl"
+              className="bg-primary text-primary-foreground rounded-full p-3 text-xl font-bold"
               onClick={() => handleActionClick(action)}
             >
               {action.name} (+{action.points} points)
@@ -137,61 +145,70 @@ export default function SpaceDetailPage({
           ))}
         </div>
 
-        <button className="nes-btn is-success mt-4 text-xl" onClick={handleCreateAction}>
+        <button className="bg-secondary text-secondary-foreground rounded-full p-3 mt-4 text-xl font-bold w-full" onClick={handleCreateAction}>
           Create New Action
         </button>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-3xl font-bold mb-2 text-shadow">Total Points:</h2>
+      <div className="mt-8 w-full max-w-md">
+        <h2 className="text-3xl font-bold mb-2">Total Points:</h2>
         <p className="text-2xl">{totalPoints}</p>
       </div>
-        <button className="nes-btn mt-4 text-xl" onClick={handleBack}>
+        <button className="bg-muted text-foreground rounded-full p-3 mt-4 text-xl font-bold w-full" onClick={handleBack}>
             Back to Home
         </button>
 
       {isCreateActionModalOpen && (
-        <div className="nes-dialog is-rounded" id="dialog-default">
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            handleSaveAction();
-          }}>
-            <p className="title">Create New Action</p>
-            <label htmlFor="newActionName">Action Name</label>
-            <input
-              type="text"
-              id="newActionName"
-              className="nes-input"
-              placeholder="Action Name"
-              value={newActionName}
-              onChange={(e) => setNewActionName(e.target.value)}
-            />
-            <label htmlFor="newActionDescription">Description</label>
-            <textarea
-              id="newActionDescription"
-              className="nes-input"
-              placeholder="Description"
-              value={newActionDescription}
-              onChange={(e) => setNewActionDescription(e.target.value)}
-            />
-            <label htmlFor="newActionPoints">Points</label>
-            <input
-              type="number"
-              id="newActionPoints"
-              className="nes-input"
-              placeholder="Points"
-              value={newActionPoints}
-              onChange={(e) => setNewActionPoints(Number(e.target.value))}
-            />
-            <div className="dialog-actions">
-              <button type="button" className="nes-btn" onClick={handleCancelAction}>
-                Cancel
-              </button>
-              <button type="submit" className="nes-btn is-primary">
-                Save
-              </button>
-            </div>
-          </form>
+        <div className="fixed top-0 left-0 w-full h-full bg-background bg-opacity-80 flex items-center justify-center">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Create New Action</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveAction();
+            }} className="space-y-4">
+              <div>
+                <label htmlFor="newActionName" className="block text-sm font-medium text-foreground">Action Name</label>
+                <input
+                  type="text"
+                  id="newActionName"
+                  className="w-full p-2 border rounded text-foreground"
+                  placeholder="Action Name"
+                  value={newActionName}
+                  onChange={(e) => setNewActionName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="newActionDescription" className="block text-sm font-medium text-foreground">Description</label>
+                <textarea
+                  id="newActionDescription"
+                  className="w-full p-2 border rounded text-foreground"
+                  placeholder="Description"
+                  value={newActionDescription}
+                  onChange={(e) => setNewActionDescription(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="newActionPoints" className="block text-sm font-medium text-foreground">Points</label>
+                <input
+                  type="number"
+                  id="newActionPoints"
+                  className="w-full p-2 border rounded text-foreground"
+                  placeholder="Points"
+                  value={newActionPoints}
+                  onChange={(e) => setNewActionPoints(Number(e.target.value))}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button type="button" className="bg-muted text-foreground rounded p-2 font-bold" onClick={handleCancelAction}>
+                  Cancel
+                </button>
+                <button type="submit" className="bg-primary text-primary-foreground rounded p-2 font-bold">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
