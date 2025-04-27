@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
+import { SpaceProvider } from './space/[spaceId]/page';
 
 interface Space {
   id: string;

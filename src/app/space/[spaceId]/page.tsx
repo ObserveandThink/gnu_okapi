@@ -1,7 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useState,
+  useContext,
+} from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -73,6 +79,139 @@ const timwoodsCategories = [
   { id: 'skills', name: 'Skills', description: 'Underutilizing people\'s talents and skills', points: 8 },
 ];
 
+// IndexedDB helper functions
+const openDB = (dbName: string, version: number) => {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(dbName, version);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('actions')) {
+        db.createObjectStore('actions', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('logEntries')) {
+          db.createObjectStore('logEntries', { keyPath: 'id' });
+      }
+       if (!db.objectStoreNames.contains('wasteEntries')) {
+        db.createObjectStore('wasteEntries', { keyPath: 'id' });
+      }
+    };
+  });
+};
+
+const addItem = (db: IDBDatabase, storeName: string, item: any) => {
+  return new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.add(item);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+const getAllItems = (db: IDBDatabase, storeName: string) => {
+  return new Promise<any[]>((resolve, reject) => {
+    const transaction = db.transaction([storeName], 'readonly');
+    const store = transaction.objectStore(storeName);
+    const request = store.getAll();
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+};
+
+// Context setup
+interface SpaceContextProps {
+  actions: Action[];
+  setActions: React.Dispatch<React.SetStateAction<Action[]>>;
+  logEntries: LogEntry[];
+  setLogEntries: React.Dispatch<React.SetStateAction<LogEntry[]>>;
+  wasteEntries: WasteEntry[];
+  setWasteEntries: React.Dispatch<React.SetStateAction<WasteEntry[]>>;
+}
+
+const SpaceContext = createContext<SpaceContextProps | undefined>(undefined);
+
+export const useSpaceContext = () => {
+  const context = useContext(SpaceContext);
+  if (!context) {
+    throw new Error("useSpaceContext must be used within a SpaceProvider");
+  }
+  return context;
+};
+
+const SpaceProvider = ({ spaceId, children }: { spaceId: string, children: React.ReactNode }) => {
+  const [actions, setActions] = useState<Action[]>([]);
+  const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
+  const [db, setDb] = useState<IDBDatabase | null>(null);
+
+  useEffect(() => {
+    const initializeDB = async () => {
+      const newDb = await openDB('okapiFlowDB', 3);
+      setDb(newDb);
+    };
+    initializeDB();
+  }, []);
+
+  useEffect(() => {
+    if (db) {
+      const loadActions = async () => {
+        const loadedActions = await getAllItems(db, 'actions') as Action[];
+        setActions(loadedActions.filter(action => action.spaceId === spaceId));
+      };
+
+      const loadLogEntries = async () => {
+          const loadedLogEntries = await getAllItems(db, 'logEntries') as LogEntry[];
+          setLogEntries(loadedLogEntries.filter(entry => {
+              return (entry as any).spaceId === spaceId;
+          }));
+      };
+      
+      const loadWasteEntries = async () => {
+          const loadedWasteEntries = await getAllItems(db, 'wasteEntries') as WasteEntry[];
+          setWasteEntries(loadedWasteEntries.filter(entry => (entry as any).spaceId === spaceId));
+      };
+
+      loadActions();
+      loadLogEntries();
+      loadWasteEntries();
+    }
+  }, [db, spaceId]);
+
+  const addAction = useCallback(async (action: Action) => {
+    if (db) {
+      await addItem(db, 'actions', action);
+      setActions(prevActions => [...prevActions, action]);
+    }
+  }, [db]);
+
+    const addLogEntry = useCallback(async (logEntry: LogEntry) => {
+        if (db) {
+            await addItem(db, 'logEntries', { ...logEntry, spaceId });
+            setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
+        }
+    }, [db, spaceId]);
+
+    const addWasteEntry = useCallback(async (wasteEntry: WasteEntry) => {
+        if (db) {
+            await addItem(db, 'wasteEntries', { ...wasteEntry, spaceId });
+            setWasteEntries(prevWasteEntries => [wasteEntry, ...prevWasteEntries]);
+        }
+    }, [db, spaceId]);
+
+  return (
+    <SpaceContext.Provider value={{ actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries }}>
+      {children}
+    </SpaceContext.Provider>
+  );
+};
+
+
 export default function SpaceDetailPage({
   params,
 }: {
@@ -81,7 +220,7 @@ export default function SpaceDetailPage({
   const { spaceId } = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const [actions, setActions] = useState<Action[]>([]);
+  const { actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries } = useSpaceContext();
   const [totalPoints, setTotalPoints] = useState(0);
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
@@ -91,11 +230,9 @@ export default function SpaceDetailPage({
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [apPerHour, setApPerHour] = useState(0);
-  const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [isAddWasteModalOpen, setIsAddWasteModalOpen] = useState(false);
   const [selectedWasteCategories, setSelectedWasteCategories] = useState<string[]>([]);
 
-  const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
 
   useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
@@ -104,40 +241,6 @@ export default function SpaceDetailPage({
       const foundSpace = spaces.find((s) => s.id === spaceId);
       if (foundSpace) {
         setSpace(foundSpace);
-      }
-    }
-  }, [spaceId]);
-
-  useEffect(() => {
-      loadActions();
-     const storedWaste = localStorage.getItem(`wasteEntries-${spaceId}`);
-    if (storedWaste) {
-      try {
-        const parsedWaste: WasteEntry[] = JSON.parse(storedWaste);
-        setWasteEntries(parsedWaste);
-      } catch (error) {
-        console.error("Error parsing waste data from localStorage:", error);
-        setWasteEntries([]);
-        localStorage.removeItem(`wasteEntries-${spaceId}`);
-      }
-    }
-
-    const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
-    if (storedLogEntries) {
-      setLogEntries(JSON.parse(storedLogEntries));
-    }
-  }, [spaceId]);
-
- const loadActions = useCallback(() => {
-    const storedActions = localStorage.getItem(`actions-${spaceId}`);
-    if (storedActions) {
-      try {
-        const parsedActions: Action[] = JSON.parse(storedActions);
-        setActions(parsedActions);
-      } catch (error) {
-        console.error("Error parsing actions from localStorage:", error);
-        setActions([]);
-        localStorage.removeItem(`actions-${spaceId}`);
       }
     }
   }, [spaceId]);
@@ -182,18 +285,6 @@ export default function SpaceDetailPage({
     };
   }, [isClockedIn, startTime, recalculateApPerHour]);
 
-  useEffect(() => {
-    localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
-  }, [actions, spaceId]);
-
-   useEffect(() => {
-    localStorage.setItem(`wasteEntries-${spaceId}`, JSON.stringify(wasteEntries));
-  }, [wasteEntries, spaceId]);
-
-  useEffect(() => {
-    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
-  }, [logEntries, spaceId]);
-
   const handleActionClick = (action: Action, multiplier: number) => {
     const pointsEarned = action.points * multiplier;
     setActions(prevActions => {
@@ -214,8 +305,11 @@ export default function SpaceDetailPage({
       points: pointsEarned,
     };
 
-    setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
-
+    // setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
+    setLogEntries(prevLogEntries => {
+      const updatedLogEntries = [logEntry, ...prevLogEntries];
+      return updatedLogEntries;
+    });
     toast({
       title: 'Action Logged!',
       description: `You earned ${pointsEarned} points for completing "${action.name}".`,
@@ -226,7 +320,7 @@ export default function SpaceDetailPage({
     setIsCreateActionModalOpen(true);
   };
 
-  const handleSaveAction = () => {
+  const handleSaveAction = async () => {
     if (newActionName) {
       const id = uuidv4();
       const newAction: Action = {
@@ -239,13 +333,12 @@ export default function SpaceDetailPage({
 
       setActions((prevActions) => {
         const updatedActions = [...prevActions, newAction];
-        localStorage.setItem(`actions-${spaceId}`, JSON.stringify(updatedActions));
         return updatedActions;
       });
-      setNewActionName('');
-      setNewActionDescription('');
-      setNewActionPoints(1);
-      setIsCreateActionModalOpen(false);
+        setNewActionName('');
+        setNewActionDescription('');
+        setNewActionPoints(1);
+        setIsCreateActionModalOpen(false);
 
       toast({
         title: 'Action Created!',
@@ -313,7 +406,7 @@ export default function SpaceDetailPage({
       };
     });
 
-    setWasteEntries(prevWasteEntries => [...newWasteEntries, ...prevWasteEntries]);
+   setWasteEntries(prevWasteEntries => [...newWasteEntries, ...prevWasteEntries]);
     setSelectedWasteCategories([]);
     setIsAddWasteModalOpen(false);
 
@@ -334,174 +427,175 @@ export default function SpaceDetailPage({
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-      <Card className="w-full max-w-4xl">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            {space.beforeImage && (
-              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-80 object-cover" />
-            )}
-            {space.afterImage && (
-              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-80 object-cover" />
-            )}
-          </div>
-          <div>
-            <CardDescription className="text-lg">{space.description}</CardDescription>
-            {space.goal && <CardDescription className="text-lg">Goal: {space.goal}</CardDescription>}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="mt-8 w-full max-w-4xl flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Total Points: {totalPoints.toFixed(2)}</h2>
-          <p className="text-lg">AP per Hour: {apPerHour.toFixed(2)}</p>
-        </div>
-        <div>
-          {!isClockedIn ? (
-            <Button variant="outline" size="lg" onClick={handleClockIn}>Clock In</Button>
-          ) : (
-            <Button variant="outline" size="lg" onClick={handleClockOut}>Clock Out</Button>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-3xl font-bold mb-4">Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {actions.map((action) => (
-            <div key={action.id} className="flex space-x-2">
-              <Button variant="secondary" onClick={() => handleActionClick(action, 1)}>{action.name} (+{action.points * 1} points)</Button>
-              <Button variant="secondary" onClick={() => handleActionClick(action, 2)}>{action.name} (+{action.points * 2} points)</Button>
-              <Button variant="secondary" onClick={() => handleActionClick(action, 5)}>{action.name} (+{action.points * 5} points)</Button>
+    <SpaceProvider spaceId={spaceId}>
+      <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
+        <Card className="w-full max-w-4xl">
+          <CardHeader>
+            <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              {space.beforeImage && (
+                <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-80 object-cover" />
+              )}
+              {space.afterImage && (
+                <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-80 object-cover" />
+              )}
             </div>
-          ))}
+            <div>
+              <CardDescription className="text-lg">{space.description}</CardDescription>
+              {space.goal && <CardDescription className="text-lg">Goal: {space.goal}</CardDescription>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="mt-8 w-full max-w-4xl flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold">Total Points: {totalPoints.toFixed(2)}</h2>
+            <p className="text-lg">AP per Hour: {apPerHour.toFixed(2)}</p>
+          </div>
+          <div>
+            {!isClockedIn ? (
+              <Button variant="outline" size="lg" onClick={handleClockIn}>Clock In</Button>
+            ) : (
+              <Button variant="outline" size="lg" onClick={handleClockOut}>Clock Out</Button>
+            )}
+          </div>
         </div>
 
-        <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
-          Create New Action
-        </Button>
-      </div>
         <div className="mt-8 w-full max-w-4xl">
-          <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
-            <Button onClick={handleAddWasteClick}>Add Waste</Button>
-            <Progress value={0} className="h-4" />
+          <h2 className="text-3xl font-bold mb-4">Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {actions.map((action) => (
+              <div key={action.id} className="flex space-x-2">
+                <Button variant="secondary" onClick={() => handleActionClick(action, 1)}>{action.name} (+{action.points * 1} points)</Button>
+                <Button variant="secondary" onClick={() => handleActionClick(action, 2)}>{action.name} (+{action.points * 2} points)</Button>
+                <Button variant="secondary" onClick={() => handleActionClick(action, 5)}>{action.name} (+{action.points * 5} points)</Button>
+              </div>
+            ))}
+          </div>
+
+          <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
+            Create New Action
+          </Button>
+        </div>
+          <div className="mt-8 w-full max-w-4xl">
+            <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
+              <Button onClick={handleAddWasteClick}>Add Waste</Button>
+              <Progress value={0} className="h-4" />
+            <ScrollArea className="max-h-40">
+              {wasteEntries.map((wasteEntry) => (
+                <div key={wasteEntry.id} className="mb-2">
+                  {wasteEntry.type} - Points: {wasteEntry.points}
+                </div>
+              ))}
+            </ScrollArea>
+          </div>
+
+        <div className="mt-8 w-full max-w-4xl">
+          <h2 className="text-2xl font-bold mb-4">Log</h2>
           <ScrollArea className="max-h-40">
-            {wasteEntries.map((wasteEntry) => (
-              <div key={wasteEntry.id} className="mb-2">
-                {wasteEntry.type} - Points: {wasteEntry.points}
+            {logEntries.map((logEntry) => (
+              <div key={logEntry.id} className="mb-2">
+                {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
               </div>
             ))}
           </ScrollArea>
         </div>
 
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-2xl font-bold mb-4">Log</h2>
-        <ScrollArea className="max-h-40">
-          {logEntries.map((logEntry) => (
-            <div key={logEntry.id} className="mb-2">
-              {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
-            </div>
-          ))}
-        </ScrollArea>
-      </div>
+        <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
+          Back to Home
+        </Button>
 
-      <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
-        Back to Home
-      </Button>
-
-      <Dialog open={isCreateActionModalOpen} onOpenChange={setIsCreateActionModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Action</DialogTitle>
-            <DialogDescription>
-              Add a new action to this space.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                type="text"
-                id="name"
-                value={newActionName}
-                onChange={(e) => setNewActionName(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
-              </Label>
-              <Textarea
-                id="description"
-                value={newActionDescription}
-                onChange={(e) => setNewActionDescription(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="points" className="text-right">
-                Points
-              </Label>
-              <Input
-                type="number"
-                id="points"
-                value={newActionPoints}
-                onChange={(e) => setNewActionPoints(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={handleCancelAction}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={handleSaveAction}>
-              Create
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={isAddWasteModalOpen} onOpenChange={setIsAddWasteModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Waste (TIMWOODS)</DialogTitle>
-            <DialogDescription>
-              Select waste categories to add to this space.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-              <div className="flex flex-wrap gap-2">
-                  {timwoodsCategories.map((category) => (
-                  <Button
-                      key={category.id}
-                      variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'}
-                      onClick={() => handleWasteCategoryClick(category.id)}
-                  >
-                      {category.name}
-                  </Button>
-                  ))}
+        <Dialog open={isCreateActionModalOpen} onOpenChange={setIsCreateActionModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Action</DialogTitle>
+              <DialogDescription>
+                Add a new action to this space.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  type="text"
+                  id="name"
+                  value={newActionName}
+                  onChange={(e) => setNewActionName(e.target.value)}
+                  className="col-span-3"
+                />
               </div>
-              <Progress value={0} className="h-4" />
-              <p>Total Waste Points: {0}</p>
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={handleCancelWaste}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={handleSaveWaste}>
-              Add Waste
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">
+                  Description
+                </Label>
+                <Textarea
+                  id="description"
+                  value={newActionDescription}
+                  onChange={(e) => setNewActionDescription(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="points" className="text-right">
+                  Points
+                </Label>
+                <Input
+                  type="number"
+                  id="points"
+                  value={newActionPoints}
+                  onChange={(e) => setNewActionPoints(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="secondary" onClick={handleCancelAction}>
+                Cancel
+              </Button>
+              <Button type="submit" onClick={handleSaveAction}>
+                Create
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isAddWasteModalOpen} onOpenChange={setIsAddWasteModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Waste (TIMWOODS)</DialogTitle>
+              <DialogDescription>
+                Select waste categories to add to this space.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="flex flex-wrap gap-2">
+                    {timwoodsCategories.map((category) => (
+                    <Button
+                        key={category.id}
+                        variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'}
+                        onClick={() => handleWasteCategoryClick(category.id)}
+                    >
+                        {category.name}
+                    </Button>
+                    ))}
+                </div>
+                <Progress value={0} className="h-4" />
+                <p>Total Waste Points: {0}</p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="secondary" onClick={handleCancelWaste}>
+                Cancel
+              </Button>
+              <Button type="submit" onClick={handleSaveWaste}>
+                Add Waste
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </SpaceProvider>
   );
 }
-
