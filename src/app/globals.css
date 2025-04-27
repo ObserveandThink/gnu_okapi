@@ -2,89 +2,288 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
+/* Custom fonts */
 @layer base {
-  :root {
-    --background: 200 20% 95%; /* Neutral light gray */
-    --foreground: 240 10% 20%; /* Dark gray */
-    --card: 200 20% 95%;
-    --card-foreground: 240 10% 20%;
-    --popover: 200 20% 95%;
-    --popover-foreground: 240 10% 20%;
-    --primary: 180 100% 25%; /* Teal */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-  .dark {
-    --background: 200 20% 95%; /* Neutral light gray */
-    --foreground: 240 10% 20%; /* Dark gray */
-    --card: 200 20% 95%;
-    --card-foreground: 240 10% 20%;
-    --popover: 200 20% 95%;
-    --popover-foreground: 240 10% 20%;
-    --primary: 180 100% 25%; /* Teal */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
   body {
+    font-family: 'Press Start 2P', cursive;
     @apply bg-background text-foreground;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'VT323', monospace;
+  }
 }
 
+/* Apply a pixelated effect to all images */
+img {
+  image-rendering: pixelated;
+}
 
+/* Custom background pattern */
+body {
+  background-color: #111; /* Dark background */
+  background-image:
+    radial-gradient(rgba(0, 150, 0, 0.75), transparent 50%),
+    radial-gradient(rgba(0, 150, 0, 0.75), transparent 50%);
+  background-size: 4px 4px;
+  color: #eee; /* Light text */
+}
+
+/* Button styles */
+.nes-btn {
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 0.5em 1em;
+  border: 2px solid black;
+  border-radius: 0;
+  background: #333;
+  color: #fff;
+  font-size: 1em;
+  line-height: 1;
+  text-decoration: none;
+  text-shadow: 0 0 2px black;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  appearance: none;
+}
+
+.nes-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.nes-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.nes-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Input styles */
+.nes-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5em;
+  border: 2px solid black;
+  border-radius: 0;
+  background: #eee;
+  color: #333;
+  font-size: 1em;
+  line-height: 1;
+  text-shadow: none;
+  appearance: none;
+}
+
+.nes-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Container for pixel art */
+.pixel-art-container {
+  image-rendering: pixelated; /* For modern browsers */
+}
+
+/* Dialog box */
+.nes-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: 80%;
+  max-width: 500px;
+  padding: 1em;
+  border: 2px solid black;
+  border-radius: 0;
+  background: #fff;
+  color: #333;
+  font-size: 1em;
+  line-height: 1.4;
+  text-shadow: none;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.nes-dialog::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid black;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.nes-dialog .dialog-title {
+  margin-bottom: 0.5em;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.nes-dialog .dialog-content {
+  margin-bottom: 1em;
+}
+
+.nes-dialog .dialog-actions {
+  text-align: right;
+}
+
+.nes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nes-list li {
+  margin-bottom: 0.5em;
+}
+
+/* Progress Bar */
+progress.nes-progress {
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  height: 1em;
+  border: 2px solid black;
+  border-radius: 0;
+  background: #eee;
+  color: green; /* Default progress color */
+  overflow: hidden; /* Hide the track behind the bar */
+}
+
+progress.nes-progress::-webkit-progress-bar {
+  background-color: #eee; /* Track color */
+}
+
+progress.nes-progress::-webkit-progress-value {
+  background-color: green; /* Bar color */
+}
+
+progress.nes-progress::-moz-progress-bar {
+  background-color: green; /* Bar color */
+}
+
+.nes-progress.is-primary {
+  color: blue;
+}
+
+.nes-progress.is-success {
+  color: green;
+}
+
+.nes-progress.is-warning {
+  color: orange;
+}
+
+.nes-progress.is-error {
+  color: red;
+}
+
+/* Table Styles */
+.nes-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1em;
+  border: 2px solid black;
+  background: #fff;
+  color: #333;
+  font-size: 1em;
+}
+
+.nes-table th,
+.nes-table td {
+  padding: 0.5em;
+  text-align: left;
+  border: 2px solid black;
+}
+
+.nes-table th {
+  font-weight: bold;
+  background: #eee;
+}
+
+.nes-badge {
+  display: inline-block;
+  padding: 0.3em 0.6em;
+  border: 2px solid black;
+  border-radius: 0;
+  background: #333;
+  color: #fff;
+  font-size: 0.8em;
+  line-height: 1;
+  text-shadow: 0 0 2px black;
+  white-space: nowrap;
+}
+
+.nes-container {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 1em;
+  border: 2px solid black;
+  border-radius: 0;
+  background: #fff;
+  color: #333;
+  font-size: 1em;
+  line-height: 1.4;
+  text-shadow: none;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.nes-container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid black;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.nes-container.is-rounded {
+  border-radius: 1em;
+}
+
+.nes-container.is-dark {
+  background: #333;
+  color: #fff;
+}
+
+.nes-text {
+  font-size: 1em;
+  line-height: 1.4;
+}
+
+.nes-text.is-primary {
+  color: blue;
+}
+
+.nes-text.is-success {
+  color: green;
+}
+
+.nes-text.is-warning {
+  color: orange;
+}
+
+.nes-text.is-error {
+  color: red;
+}
+
+.icon {
+  display: inline-block;
+  width: 16px; /* Adjust as needed */
+  height: 16px; /* Adjust as needed */
+  image-rendering: pixelated; /* Ensure no anti-aliasing */
+  vertical-align: middle; /* Align with text if needed */
+}

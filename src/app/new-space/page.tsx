@@ -1,114 +1,77 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-
-const spaceSchema = z.object({
-  name: z.string().min(2, {
-    message: "Space name must be at least 2 characters.",
-  }),
-  description: z.string().optional(),
-  goal: z.string().optional(),
-});
+import { toast } from "@/hooks/use-toast";
 
 export default function NewSpacePage() {
   const router = useRouter();
-  const form = useForm<z.infer<typeof spaceSchema>>({
-    resolver: zodResolver(spaceSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      goal: "",
-    },
-  });
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [goal, setGoal] = useState("");
 
-  async function onSubmit(values: z.infer<typeof spaceSchema>) {
-    const id = uuidv4(); // Generate a unique ID
-    const newSpace = { ...values, id };
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
-    // Get existing spaces from local storage
+    const id = uuidv4();
+    const newSpace = { id, name, description, goal };
+
     const storedSpaces = localStorage.getItem("spaces");
     const existingSpaces = storedSpaces ? JSON.parse(storedSpaces) : [];
 
-    // Add the new space to the existing spaces
     const updatedSpaces = [...existingSpaces, newSpace];
-
-    // Save the updated spaces back to local storage
     localStorage.setItem("spaces", JSON.stringify(updatedSpaces));
 
     toast({
       title: "Space created!",
-      description: `Space "${values.name}" has been successfully created.`,
+      description: `Space "${name}" has been successfully created.`,
     });
     router.push("/");
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
-      <h1 className="text-4xl font-bold mb-4">Create New Space</h1>
-      <div className="w-full max-w-md border rounded-lg p-6 bg-card text-card-foreground shadow-sm">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Space Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter space name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+      <div className="nes-container with-title is-rounded">
+        <p className="title">Create New Space</p>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name">Space Name</label>
+            <input
+              type="text"
+              id="name"
+              className="nes-input"
+              placeholder="Enter space name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
             />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter space description"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          </div>
+          <div>
+            <label htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              className="nes-input"
+              placeholder="Enter space description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
-            <FormField
-              control={form.control}
-              name="goal"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Goal (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter space goal" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          </div>
+          <div>
+            <label htmlFor="goal">Goal (Optional)</label>
+            <input
+              type="text"
+              id="goal"
+              className="nes-input"
+              placeholder="Enter space goal"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
             />
-            <Button type="submit">Create Space</Button>
-          </form>
-        </Form>
+          </div>
+          <button type="submit" className="nes-btn is-primary">
+            Create Space
+          </button>
+        </form>
       </div>
     </div>
   );

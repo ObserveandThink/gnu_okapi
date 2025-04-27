@@ -1,9 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 
 interface Space {
@@ -18,7 +15,6 @@ export default function Home() {
   const [spaces, setSpaces] = useState<Space[]>([]);
 
   useEffect(() => {
-    // Simulate fetching spaces from a database
     const storedSpaces = localStorage.getItem("spaces");
     if (storedSpaces) {
       setSpaces(JSON.parse(storedSpaces));
@@ -39,22 +35,17 @@ export default function Home() {
       <p className="text-lg mb-8">
         Get started by creating your first Space!
       </p>
-      <Button size="lg" onClick={handleCreateSpace} className="mb-8">
-        <Plus className="mr-2 h-5 w-5" />
+      <button className="nes-btn is-success" onClick={handleCreateSpace}>
         Create New Space
-      </Button>
+      </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl mt-8">
         {spaces.map((space) => (
-          <Card key={space.id} onClick={() => handleSpaceClick(space.id)} className="cursor-pointer">
-            <CardHeader>
-              <CardTitle>{space.name}</CardTitle>
-              <CardDescription>{space.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {space.goal && <p>Goal: {space.goal}</p>}
-            </CardContent>
-          </Card>
+          <div key={space.id} className="nes-container with-title is-rounded" onClick={() => handleSpaceClick(space.id)}>
+            <p className="title">{space.name}</p>
+            <p>{space.description}</p>
+            {space.goal && <p>Goal: {space.goal}</p>}
+          </div>
         ))}
       </div>
     </div>
