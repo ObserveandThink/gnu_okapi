@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { v4 as uuidv4 } from 'uuid';
 
 const spaceSchema = z.object({
   name: z.string().min(2, {
@@ -37,8 +38,19 @@ export default function NewSpacePage() {
   });
 
   async function onSubmit(values: z.infer<typeof spaceSchema>) {
-    // Simulate saving to a database
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const id = uuidv4(); // Generate a unique ID
+    const newSpace = { ...values, id };
+
+    // Get existing spaces from local storage
+    const storedSpaces = localStorage.getItem("spaces");
+    const existingSpaces = storedSpaces ? JSON.parse(storedSpaces) : [];
+
+    // Add the new space to the existing spaces
+    const updatedSpaces = [...existingSpaces, newSpace];
+
+    // Save the updated spaces back to local storage
+    localStorage.setItem("spaces", JSON.stringify(updatedSpaces));
+
     toast({
       title: "Space created!",
       description: `Space "${values.name}" has been successfully created.`,
