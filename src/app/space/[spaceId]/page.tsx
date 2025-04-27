@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Progress } from "@/components/ui/progress"
 
 interface Space {
   id: string;
@@ -57,9 +58,20 @@ interface LogEntry {
 interface WasteEntry {
   id: string;
   timestamp: Date;
-  amount: number;
-  unit: string;
+  type: string;
+  points: number;
 }
+
+const timwoodsCategories = [
+  { id: 'transportation', name: 'Transportation', description: 'Unnecessary movement of materials or products.', points: 1 },
+  { id: 'inventory', name: 'Inventory', description: 'Excess raw materials, work in progress, or finished goods.', points: 2 },
+  { id: 'motion', name: 'Motion', description: 'Unnecessary movement of people.', points: 3 },
+  { id: 'waiting', name: 'Waiting', description: 'Idle time waiting for the next step in a process.', points: 4 },
+  { id: 'overprocessing', name: 'Overprocessing', description: 'Performing more work than is necessary.', points: 5 },
+  { id: 'overproduction', name: 'Overproduction', description: 'Producing more than is needed.', points: 6 },
+  { id: 'defects', name: 'Defects', description: 'Rework or scrap due to errors or defects.', points: 7 },
+  { id: 'skills', name: 'Skills', description: 'Underutilizing people\'s talents and skills', points: 8 },
+];
 
 export default function SpaceDetailPage({
   params,
@@ -80,6 +92,8 @@ export default function SpaceDetailPage({
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [apPerHour, setApPerHour] = useState(0);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const [isAddWasteModalOpen, setIsAddWasteModalOpen] = useState(false);
+  const [selectedWasteCategories, setSelectedWasteCategories] = useState<string[]>([]);
 
   const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
   const [newWasteAmount, setNewWasteAmount] = useState(0);
@@ -107,7 +121,7 @@ export default function SpaceDetailPage({
       }
     }
 
-    const storedWaste = localStorage.getItem(`waste-${spaceId}`);
+     const storedWaste = localStorage.getItem(`wasteEntries-${spaceId}`);
     if (storedWaste) {
       try {
         const parsedWaste: WasteEntry[] = JSON.parse(storedWaste);
@@ -115,10 +129,14 @@ export default function SpaceDetailPage({
       } catch (error) {
         console.error("Error parsing waste data from localStorage:", error);
         setWasteEntries([]);
-        localStorage.removeItem(`waste-${spaceId}`);
+        localStorage.removeItem(`wasteEntries-${spaceId}`);
       }
     }
   }, [spaceId]);
+
+  useEffect(() => {
+    recalculateTotalPoints();
+  }, [actions, spaceId]);
 
   const recalculateTotalPoints = useCallback(() => {
     const newTotalPoints = actions.reduce((acc, action) => acc + action.points, 0);
@@ -160,8 +178,8 @@ export default function SpaceDetailPage({
     localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
   }, [actions, spaceId]);
 
-  useEffect(() => {
-    localStorage.setItem(`waste-${spaceId}`, JSON.stringify(wasteEntries));
+   useEffect(() => {
+    localStorage.setItem(`wasteEntries-${spaceId}`, JSON.stringify(wasteEntries));
   }, [wasteEntries, spaceId]);
 
   const handleActionClick = (action: Action, multiplier: number) => {
@@ -252,27 +270,58 @@ export default function SpaceDetailPage({
     router.push('/');
   };
 
-  const handleAddWaste = () => {
-    const id = uuidv4();
-    const now = new Date();
-    const newWasteEntry: WasteEntry = {
-      id: uuidv4(),
-      timestamp: now,
-      amount: newWasteAmount,
-      unit: newWasteUnit,
-    };
+    const handleAddWasteClick = () => {
+    setIsAddWasteModalOpen(true);
+  };
 
-    setWasteEntries(prevWasteEntries => [newWasteEntry, ...prevWasteEntries]);
-    setNewWasteAmount(0);
-    setNewWasteUnit('kg');
-
-    toast({
-      title: 'Waste Added!',
-      description: `Added ${newWasteAmount} ${newWasteUnit} of waste.`,
+  const handleWasteCategoryClick = (categoryId: string) => {
+    setSelectedWasteCategories((prevCategories) => {
+      if (prevCategories.includes(categoryId)) {
+        return prevCategories.filter((id) => id !== categoryId);
+      } else {
+        return [...prevCategories, categoryId];
+      }
     });
   };
 
-  const totalWaste = wasteEntries.reduce((acc, entry) => acc + entry.amount, 0);
+  const calculateTotalWastePoints = () => {
+    return selectedWasteCategories.reduce((total, categoryId) => {
+      const category = timwoodsCategories.find((cat) => cat.id === categoryId);
+      return category ? total + category.points : total;
+    }, 0);
+  };
+
+ const handleSaveWaste = () => {
+    const now = new Date();
+    const newWasteEntries = selectedWasteCategories.map(categoryId => {
+      const category = timwoodsCategories.find(cat => cat.id === categoryId);
+      return {
+        id: uuidv4(),
+        timestamp: now,
+        type: category?.name || 'Unknown',
+        points: category?.points || 0,
+      };
+    });
+
+    setWasteEntries(prevWasteEntries => [...newWasteEntries, ...prevWasteEntries]);
+    setSelectedWasteCategories([]);
+    setIsAddWasteModalOpen(false);
+
+    toast({
+      title: 'Waste Added!',
+      description: `Added waste for selected categories.`,
+    });
+  };
+
+ const handleCancelWaste = () => {
+    setIsAddWasteModalOpen(false);
+    setSelectedWasteCategories([]);
+  };
+
+
+  const totalWastePoints = wasteEntries.reduce((acc, entry) => acc + entry.points, 0);
+  const wasteProgress = Math.min((totalWastePoints / 40) * 100, 100); // Assuming 40 is the max progress
+
 
   if (!space) {
     return <div>Space not found</div>;
@@ -330,36 +379,18 @@ export default function SpaceDetailPage({
           Create New Action
         </Button>
       </div>
-
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
-        <div className="flex items-center space-x-4 mb-4">
-          <Input
-            type="number"
-            placeholder="Amount"
-            value={newWasteAmount}
-            onChange={(e) => setNewWasteAmount(Number(e.target.value))}
-          />
-          <select
-            value={newWasteUnit}
-            onChange={(e) => setNewWasteUnit(e.target.value)}
-            className="border rounded p-2"
-          >
-            <option value="kg">kg</option>
-            <option value="lbs">lbs</option>
-            <option value="tons">tons</option>
-          </select>
-          <Button onClick={handleAddWaste}>Add Waste</Button>
+        <div className="mt-8 w-full max-w-4xl">
+          <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
+            <Button onClick={handleAddWasteClick}>Add Waste</Button>
+            <Progress value={wasteProgress} className="h-4" />
+          <ScrollArea className="max-h-40">
+            {wasteEntries.map((wasteEntry) => (
+              <div key={wasteEntry.id} className="mb-2">
+                {wasteEntry.type} - Points: {wasteEntry.points} recorded at {formatTime(wasteEntry.timestamp)}
+              </div>
+            ))}
+          </ScrollArea>
         </div>
-        <p className="text-lg">Total Waste: {totalWaste} kg</p>
-        <ScrollArea className="max-h-40">
-          {wasteEntries.map((wasteEntry) => (
-            <div key={wasteEntry.id} className="mb-2">
-              {wasteEntry.amount} {wasteEntry.unit} recorded at {formatTime(wasteEntry.timestamp)}
-            </div>
-          ))}
-        </ScrollArea>
-      </div>
 
       <div className="mt-8 w-full max-w-4xl">
         <h2 className="text-2xl font-bold mb-4">Log</h2>
@@ -427,6 +458,39 @@ export default function SpaceDetailPage({
             </Button>
             <Button type="submit" onClick={handleSaveAction}>
               Create
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isAddWasteModalOpen} onOpenChange={setIsAddWasteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Waste (TIMWOODS)</DialogTitle>
+            <DialogDescription>
+              Select waste categories to add to this space.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+              <div className="flex flex-wrap gap-2">
+                  {timwoodsCategories.map((category) => (
+                  <Button
+                      key={category.id}
+                      variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'}
+                      onClick={() => handleWasteCategoryClick(category.id)}
+                  >
+                      {category.name}
+                  </Button>
+                  ))}
+              </div>
+              <Progress value={wasteProgress} className="h-4" />
+              <p>Total Waste Points: {calculateTotalWastePoints()}</p>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="secondary" onClick={handleCancelWaste}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleSaveWaste}>
+              Add Waste
             </Button>
           </div>
         </DialogContent>
