@@ -1,17 +1,33 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { toast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Textarea } from '@/components/ui/textarea';
 
 interface Space {
   id: string;
   name: string;
   description?: string;
   goal?: string;
-    beforeImage?: string | null;
-    afterImage?: string | null;
+  beforeImage?: string | null;
+  afterImage?: string | null;
 }
 
 interface Action {
@@ -28,18 +44,21 @@ export default function SpaceDetailPage({
   params: { spaceId: string };
 }) {
   const { spaceId } = params;
-    const router = useRouter();
+  const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
-  const [newActionName, setNewActionName] = useState("");
-  const [newActionDescription, setNewActionDescription] = useState("");
+  const [newActionName, setNewActionName] = useState('');
+  const [newActionDescription, setNewActionDescription] = useState('');
   const [newActionPoints, setNewActionPoints] = useState(1);
   const [isCreateActionModalOpen, setIsCreateActionModalOpen] = useState(false);
-
+  const [isClockedIn, setIsClockedIn] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0); // in seconds
+  const [apPerHour, setApPerHour] = useState(0);
 
   useEffect(() => {
-    const storedSpaces = localStorage.getItem("spaces");
+    const storedSpaces = localStorage.getItem('spaces');
     if (storedSpaces) {
       const spaces: Space[] = JSON.parse(storedSpaces);
       const foundSpace = spaces.find((s) => s.id === spaceId);
@@ -53,28 +72,59 @@ export default function SpaceDetailPage({
       const parsedActions: Action[] = JSON.parse(storedActions);
       setActions(parsedActions);
 
-      const initialPoints = parsedActions.reduce(
-        (acc, action) => acc + action.points,
-        0
-      );
-      setTotalPoints(initialPoints);
-    } else {
-      setTotalPoints(0);
     }
   }, [spaceId]);
 
   useEffect(() => {
     localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
+    recalculateTotalPoints();
   }, [actions, spaceId]);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    if (isClockedIn && startTime) {
+      intervalId = setInterval(() => {
+        const now = new Date();
+        const timeDifference = now.getTime() - startTime.getTime();
+        setElapsedTime(Math.floor(timeDifference / 1000)); // in seconds
+      }, 1000);
+    } else {
+      setElapsedTime(0);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isClockedIn, startTime]);
+
+  useEffect(() => {
+    recalculateApPerHour();
+  }, [totalPoints, elapsedTime]);
+
+  const recalculateTotalPoints = () => {
+    const newTotalPoints = actions.reduce((acc, action) => acc + action.points, 0);
+    setTotalPoints(newTotalPoints);
+  };
+
+  const recalculateApPerHour = () => {
+    if (elapsedTime > 0) {
+      const hours = elapsedTime / 3600;
+      setApPerHour(totalPoints / hours);
+    } else {
+      setApPerHour(0);
+    }
+  };
 
   const handleActionClick = (action: Action) => {
     setTotalPoints((prevPoints) => prevPoints + action.points);
     toast({
-      title: "Action Logged!",
+      title: 'Action Logged!',
       description: `You earned ${action.points} points for completing "${action.name}".`,
     });
   };
-
 
   const handleCreateAction = () => {
     setIsCreateActionModalOpen(true);
@@ -92,26 +142,45 @@ export default function SpaceDetailPage({
       };
 
       setActions((prevActions) => [...prevActions, newAction]);
-      setNewActionName("");
-      setNewActionDescription("");
+      setNewActionName('');
+      setNewActionDescription('');
       setNewActionPoints(1);
       setIsCreateActionModalOpen(false);
-          toast({
-              title: "Action Created!",
-              description: `Action "${newAction.name}" has been successfully created.`,
-          });
+      toast({
+        title: 'Action Created!',
+        description: `Action "${newAction.name}" has been successfully created.`,
+      });
     }
   };
 
   const handleCancelAction = () => {
     setIsCreateActionModalOpen(false);
-    setNewActionName("");
-    setNewActionDescription("");
+    setNewActionName('');
+    setNewActionDescription('');
     setNewActionPoints(1);
   };
-    const handleBack = () => {
-        router.push('/');
-    };
+
+  const handleClockIn = () => {
+    setIsClockedIn(true);
+    setStartTime(new Date());
+    toast({
+      title: 'Clocked In!',
+      description: 'You are now clocked in. Start earning those points!',
+    });
+  };
+
+  const handleClockOut = () => {
+    setIsClockedIn(false);
+    setStartTime(null);
+    toast({
+      title: 'Clocked Out!',
+      description: 'You are now clocked out. Time to take a break!',
+    });
+  };
+
+  const handleBack = () => {
+    router.push('/');
+  };
 
   if (!space) {
     return <div>Space not found</div>;
@@ -119,96 +188,83 @@ export default function SpaceDetailPage({
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-      <div className="bg-card rounded-lg p-6 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4">{space.name}</h1>
-          {space.beforeImage && (
-              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-40 object-cover" />
+      <Card className="w-full max-w-4xl">
+        <CardHeader>
+          <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            {space.beforeImage && (
+              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-80 object-cover" />
+            )}
+            {space.afterImage && (
+              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-80 object-cover" />
+            )}
+          </div>
+          <div>
+            <CardDescription className="text-lg">{space.description}</CardDescription>
+            {space.goal && <CardDescription className="text-lg">Goal: {space.goal}</CardDescription>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="mt-8 w-full max-w-4xl flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Total Points: {totalPoints.toFixed(2)}</h2>
+          <p className="text-lg">AP per Hour: {apPerHour.toFixed(2)}</p>
+        </div>
+        <div>
+          {!isClockedIn ? (
+            <Button variant="outline" size="lg" onClick={handleClockIn}>Clock In</Button>
+          ) : (
+            <Button variant="outline" size="lg" onClick={handleClockOut}>Clock Out</Button>
           )}
-          {space.afterImage && (
-              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-40 object-cover" />
-          )}
-        <p className="text-foreground">{space.description}</p>
-        {space.goal && <p className="text-foreground">Goal: {space.goal}</p>}
+        </div>
       </div>
 
-      <div className="mt-8 w-full max-w-md">
-        <h2 className="text-3xl font-bold mb-2">Actions</h2>
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-3xl font-bold mb-4">Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((action) => (
-            <button
-              key={action.id}
-              className="bg-primary text-primary-foreground rounded-full p-3 text-xl font-bold"
-              onClick={() => handleActionClick(action)}
-            >
-              {action.name} (+{action.points} points)
-            </button>
+            <div key={action.id} className="flex space-x-2">
+              <Button variant="secondary" onClick={() => handleActionClick({ ...action, points: action.points * 1 })}>{action.name} (+{action.points * 1} points)</Button>
+              <Button variant="secondary" onClick={() => handleActionClick({ ...action, points: action.points * 2 })}>{action.name} (+{action.points * 2} points)</Button>
+              <Button variant="secondary" onClick={() => handleActionClick({ ...action, points: action.points * 5 })}>{action.name} (+{action.points * 5} points)</Button>
+            </div>
           ))}
         </div>
 
-        <button className="bg-secondary text-secondary-foreground rounded-full p-3 mt-4 text-xl font-bold w-full" onClick={handleCreateAction}>
+        <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
           Create New Action
-        </button>
+        </Button>
       </div>
 
-      <div className="mt-8 w-full max-w-md">
-        <h2 className="text-3xl font-bold mb-2">Total Points:</h2>
-        <p className="text-2xl">{totalPoints}</p>
-      </div>
-        <button className="bg-muted text-foreground rounded-full p-3 mt-4 text-xl font-bold w-full" onClick={handleBack}>
-            Back to Home
-        </button>
+      <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
+        Back to Home
+      </Button>
 
       {isCreateActionModalOpen && (
         <div className="fixed top-0 left-0 w-full h-full bg-background bg-opacity-80 flex items-center justify-center">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Create New Action</h3>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              handleSaveAction();
-            }} className="space-y-4">
-              <div>
-                <label htmlFor="newActionName" className="block text-sm font-medium text-foreground">Action Name</label>
-                <input
-                  type="text"
-                  id="newActionName"
-                  className="w-full p-2 border rounded text-foreground"
-                  placeholder="Action Name"
-                  value={newActionName}
-                  onChange={(e) => setNewActionName(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="newActionDescription" className="block text-sm font-medium text-foreground">Description</label>
-                <textarea
-                  id="newActionDescription"
-                  className="w-full p-2 border rounded text-foreground"
-                  placeholder="Description"
-                  value={newActionDescription}
-                  onChange={(e) => setNewActionDescription(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="newActionPoints" className="block text-sm font-medium text-foreground">Points</label>
-                <input
-                  type="number"
-                  id="newActionPoints"
-                  className="w-full p-2 border rounded text-foreground"
-                  placeholder="Points"
-                  value={newActionPoints}
-                  onChange={(e) => setNewActionPoints(Number(e.target.value))}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button type="button" className="bg-muted text-foreground rounded p-2 font-bold" onClick={handleCancelAction}>
-                  Cancel
-                </button>
-                <button type="submit" className="bg-primary text-primary-foreground rounded p-2 font-bold">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
+          <AlertDialog>
+      <AlertDialogTrigger asChild>
+      <Button>Edit Profile</Button>
+    </AlertDialogTrigger>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This action cannot be undone. This will permanently delete your account
+          and remove your data from our servers.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction>Continue</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+    </AlertDialog>
+          
+          
         </div>
       )}
     </div>
