@@ -27,6 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 
 interface Space {
   id: string;
@@ -42,6 +44,13 @@ interface Action {
   name: string;
   spaceId: string;
   description?: string;
+  points: number;
+}
+
+interface LogEntry {
+  id: string;
+  timestamp: Date;
+  actionName: string;
   points: number;
 }
 
@@ -63,6 +72,7 @@ export default function SpaceDetailPage({
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [apPerHour, setApPerHour] = useState(0);
+  const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
@@ -108,9 +118,11 @@ export default function SpaceDetailPage({
         const now = new Date();
         const timeDifference = now.getTime() - startTime.getTime();
         setElapsedTime(Math.floor(timeDifference / 1000)); // in seconds
+        recalculateApPerHour();
       }, 1000);
     } else {
       setElapsedTime(0);
+      recalculateApPerHour();
     }
 
     return () => {
@@ -118,13 +130,14 @@ export default function SpaceDetailPage({
         clearInterval(intervalId);
       }
     };
-  }, [isClockedIn, startTime]);
+  }, [isClockedIn, startTime, recalculateApPerHour]);
 
   useEffect(() => {
     localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
   }, [actions, spaceId]);
 
-  const handleActionClick = (action: Action) => {
+  const handleActionClick = (action: Action, multiplier: number) => {
+    const pointsEarned = action.points * multiplier;
     setActions(prevActions => {
       return prevActions.map(existingAction => {
         if (existingAction.id === action.id) {
@@ -134,9 +147,20 @@ export default function SpaceDetailPage({
         }
       });
     });
+
+    const now = new Date();
+    const logEntry: LogEntry = {
+      id: uuidv4(),
+      timestamp: now,
+      actionName: action.name,
+      points: pointsEarned,
+    };
+
+    setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
+
     toast({
       title: 'Action Logged!',
-      description: `You earned ${action.points} points for completing "${action.name}".`,
+      description: `You earned ${pointsEarned} points for completing "${action.name}".`,
     });
   };
 
@@ -192,6 +216,10 @@ export default function SpaceDetailPage({
     });
   };
 
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const handleBack = () => {
     router.push('/');
   };
@@ -241,9 +269,9 @@ export default function SpaceDetailPage({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((action) => (
             <div key={action.id} className="flex space-x-2">
-              <Button variant="secondary" onClick={() => handleActionClick({ ...action, points: action.points * 1 })}>{action.name} (+{action.points * 1} points)</Button>
-              <Button variant="secondary" onClick={() => handleActionClick({ ...action, points: action.points * 2 })}>{action.name} (+{action.points * 2} points)</Button>
-              <Button variant="secondary" onClick={() => handleActionClick({ ...action, points: action.points * 5 })}>{action.name} (+{action.points * 5} points)</Button>
+              <Button variant="secondary" onClick={() => handleActionClick(action, 1)}>{action.name} (+{action.points * 1} points)</Button>
+              <Button variant="secondary" onClick={() => handleActionClick(action, 2)}>{action.name} (+{action.points * 2} points)</Button>
+              <Button variant="secondary" onClick={() => handleActionClick(action, 5)}>{action.name} (+{action.points * 5} points)</Button>
             </div>
           ))}
         </div>
@@ -251,6 +279,17 @@ export default function SpaceDetailPage({
         <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
           Create New Action
         </Button>
+      </div>
+
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-2xl font-bold mb-4">Log</h2>
+        <ScrollArea className="max-h-40">
+          {logEntries.map((logEntry) => (
+            <div key={logEntry.id} className="mb-2">
+              {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
+            </div>
+          ))}
+        </ScrollArea>
       </div>
 
       <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
