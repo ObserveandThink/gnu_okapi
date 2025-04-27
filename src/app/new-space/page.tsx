@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function NewSpacePage() {
   const router = useRouter();
@@ -41,25 +41,33 @@ export default function NewSpacePage() {
       return;
     }
 
-    const id = uuidv4();
-    const newSpace = { id, name, description, goal, beforeImage, afterImage };
+    try {
+      const id = uuidv4();
+      const newSpace = { id, name, description, goal, beforeImage, afterImage };
 
-    const storedSpaces = localStorage.getItem("spaces");
-    const existingSpaces = storedSpaces ? JSON.parse(storedSpaces) : [];
+      const storedSpaces = localStorage.getItem("spaces");
+      const existingSpaces = storedSpaces ? JSON.parse(storedSpaces) : [];
 
-    const updatedSpaces = [...existingSpaces, newSpace];
-    localStorage.setItem("spaces", JSON.stringify(updatedSpaces));
+      const updatedSpaces = [...existingSpaces, newSpace];
+      localStorage.setItem("spaces", JSON.stringify(updatedSpaces));
 
-    toast({
-      title: "Space created!",
-      description: `Space "${name}" has been successfully created.`,
-    });
-    router.push("/");
+      toast({
+        title: "Space created!",
+        description: `Space "${name}" has been successfully created.`,
+      });
+      router.push("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create space.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md card-shadow">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Create New Space</CardTitle>
         </CardHeader>

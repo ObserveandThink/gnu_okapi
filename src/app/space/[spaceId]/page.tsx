@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -15,18 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -166,20 +153,30 @@ const SpaceProvider = ({ spaceId, children }: { spaceId: string, children: React
   useEffect(() => {
     if (db) {
       const loadActions = async () => {
-        const loadedActions = await getAllItems(db, 'actions') as Action[];
-        setActions(loadedActions.filter(action => action.spaceId === spaceId));
+        try {
+          const loadedActions = await getAllItems(db, 'actions') as Action[];
+          setActions(loadedActions.filter(action => action.spaceId === spaceId));
+        } catch (error) {
+          console.error("Failed to load actions:", error);
+        }
       };
 
       const loadLogEntries = async () => {
+        try {
           const loadedLogEntries = await getAllItems(db, 'logEntries') as LogEntry[];
-          setLogEntries(loadedLogEntries.filter(entry => {
-              return (entry as any).spaceId === spaceId;
-          }));
+          setLogEntries(loadedLogEntries.filter(entry => (entry as any).spaceId === spaceId));
+        } catch (error) {
+          console.error("Failed to load log entries:", error);
+        }
       };
       
       const loadWasteEntries = async () => {
+        try {
           const loadedWasteEntries = await getAllItems(db, 'wasteEntries') as WasteEntry[];
           setWasteEntries(loadedWasteEntries.filter(entry => (entry as any).spaceId === spaceId));
+        } catch (error) {
+          console.error("Failed to load waste entries:", error);
+        }
       };
 
       loadActions();
@@ -190,24 +187,39 @@ const SpaceProvider = ({ spaceId, children }: { spaceId: string, children: React
 
   const addAction = useCallback(async (action: Action) => {
     if (db) {
-      await addItem(db, 'actions', action);
-      setActions(prevActions => [...prevActions, action]);
+      try {
+        await addItem(db, 'actions', action);
+        setActions(prevActions => [...prevActions, action]);
+      } catch (error) {
+        console.error("Failed to add action:", error);
+        toast({ title: "Error", description: "Failed to add action.", variant: "destructive" });
+      }
     }
-  }, [db]);
+  }, [db, toast]);
 
     const addLogEntry = useCallback(async (logEntry: LogEntry) => {
         if (db) {
-            await addItem(db, 'logEntries', { ...logEntry, spaceId });
-            setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
+            try {
+                await addItem(db, 'logEntries', { ...logEntry, spaceId });
+                setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
+            } catch (error) {
+                console.error("Failed to add log entry:", error);
+                toast({ title: "Error", description: "Failed to add log entry.", variant: "destructive" });
+            }
         }
-    }, [db, spaceId]);
+    }, [db, spaceId, toast]);
 
     const addWasteEntry = useCallback(async (wasteEntry: WasteEntry) => {
         if (db) {
-            await addItem(db, 'wasteEntries', { ...wasteEntry, spaceId });
-            setWasteEntries(prevWasteEntries => [wasteEntry, ...prevWasteEntries]);
+            try {
+                await addItem(db, 'wasteEntries', { ...wasteEntry, spaceId });
+                setWasteEntries(prevWasteEntries => [wasteEntry, ...prevWasteEntries]);
+            } catch (error) {
+                console.error("Failed to add waste entry:", error);
+                toast({ title: "Error", description: "Failed to add waste entry.", variant: "destructive" });
+            }
         }
-    }, [db]);
+    }, [db, spaceId, toast]);
 
   return (
     <SpaceContext.Provider value={{ actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry }}>
@@ -215,7 +227,6 @@ const SpaceProvider = ({ spaceId, children }: { spaceId: string, children: React
     </SpaceContext.Provider>
   );
 };
-
 
 export default function SpaceDetailPage({
   params,
@@ -225,7 +236,7 @@ export default function SpaceDetailPage({
   const { spaceId } = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
+  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
   const [totalPoints, setTotalPoints] = useState(0);
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
@@ -423,7 +434,7 @@ export default function SpaceDetailPage({
   return (
     <SpaceProvider spaceId={spaceId}>
       <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-        <Card className="w-full max-w-4xl">
+        <Card className="w-full max-w-4xl card-shadow">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
           </CardHeader>
@@ -593,4 +604,3 @@ export default function SpaceDetailPage({
     </SpaceProvider>
   );
 }
-
