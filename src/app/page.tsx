@@ -29,6 +29,10 @@ export default function Home() {
     router.push('/new-space');
   };
 
+  const handleSpaceClick = (spaceId: string) => {
+    router.push(`/space/${spaceId}`);
+  };
+
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8">
       <h1 className="text-4xl font-bold mb-4">Welcome to OkapiFlow</h1>
@@ -42,7 +46,7 @@ export default function Home() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl">
         {spaces.map((space) => (
-          <Card key={space.id}>
+          <Card key={space.id} onClick={() => handleSpaceClick(space.id)} className="cursor-pointer">
             <CardHeader>
               <CardTitle>{space.name}</CardTitle>
               <CardDescription>{space.description}</CardDescription>
