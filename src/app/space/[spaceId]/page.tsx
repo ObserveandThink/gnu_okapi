@@ -89,8 +89,7 @@ export default function SpaceDetailPage({
   const {spaceId} = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry, loadActions } = useSpaceContext();
-  const [totalPoints, setTotalPoints] = useState(0);
+  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry, loadActions, loadLogEntries, loadWasteEntries } = useSpaceContext();
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
   const [newActionPoints, setNewActionPoints] = useState(1);
@@ -104,6 +103,8 @@ export default function SpaceDetailPage({
   const [selectedWasteCategories, setSelectedWasteCategories] = useState<string[]>([]);
   const [totalWastePoints, setTotalWastePoints] = useState(0);
   const [totalClockedInTime, setTotalClockedInTime] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
+
 
   useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
@@ -118,16 +119,25 @@ export default function SpaceDetailPage({
 
   useEffect(() => {
     loadActions(spaceId);
-  }, [spaceId, loadActions]);
+    loadLogEntries(spaceId);
+    loadWasteEntries(spaceId);
+    const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
+    if (storedTotalClockedInTime) {
+      setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
+    }
+  }, [spaceId, loadActions, loadLogEntries, loadWasteEntries]);
 
-  useEffect(() => {
-    recalculateTotalPoints();
-  }, [actions, spaceId]);
+    useEffect(() => {
+        recalculateTotalPoints();
+    }, [actions, logEntries, spaceId]);
 
   const recalculateTotalPoints = useCallback(() => {
-    const newTotalPoints = actions.reduce((acc, action) => acc + action.points, 0);
+    let newTotalPoints = 0;
+    logEntries.forEach(logEntry => {
+      newTotalPoints += logEntry.points;
+    });
     setTotalPoints(newTotalPoints);
-  }, [actions]);
+  }, [logEntries]);
 
   const recalculateApPerHour = useCallback(() => {
     if (elapsedTime > 0) {
@@ -183,6 +193,7 @@ export default function SpaceDetailPage({
     };
 
     addLogEntry(logEntry);
+    recalculateTotalPoints();
 
     toast({
       title: 'Action Logged!',
@@ -260,6 +271,7 @@ export default function SpaceDetailPage({
       const secondsClockedIn = Math.floor(timeDifference / (1000));
 
       setTotalClockedInTime(prevTime => prevTime + minutesClockedIn);
+      localStorage.setItem(`totalClockedInTime-${spaceId}`, JSON.stringify(totalClockedInTime + minutesClockedIn));
 
       const logEntry: LogEntry = {
         id: uuidv4(),
@@ -345,14 +357,6 @@ export default function SpaceDetailPage({
     });
     setTotalWastePoints(total);
   }, [wasteEntries]);
-
-  useEffect(() => {
-    const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
-    if (storedTotalClockedInTime) {
-      setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
-    }
-  }, [spaceId]);
-
 
   const formatElapsedTime = (timeInSeconds: number): string => {
     const hours = Math.floor(timeInSeconds / 3600);
@@ -590,4 +594,3 @@ export default function SpaceDetailPage({
     </div>
   );
 }
-
