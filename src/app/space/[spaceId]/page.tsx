@@ -168,6 +168,7 @@ export default function SpaceDetailPage({
       actionName: action.name,
       points: pointsEarned,
       type: 'action',
+      spaceId: spaceId,
     };
 
     addLogEntry(logEntry);
@@ -357,20 +358,52 @@ export default function SpaceDetailPage({
   return (
       <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
         <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold">Dashboard</h2>
-            <p>Total Clocked In Time: {formatElapsedTime(totalClockedInTime * 60)}</p>
-            <p>Total Points: {totalPoints.toFixed(2)}</p>
-            <p>AP per Hour: {apPerHour.toFixed(2)}</p>
-            <p>Waste Count: {totalWastePoints}</p>
-          </div>
-          <div>
-            {!isClockedIn ? (
-              <Button variant="outline" size="lg" onClick={handleClockIn}>Clock In</Button>
-            ) : (
-              <Button variant="outline" size="lg" onClick={handleClockOut}>Clock Out</Button>
-            )}
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle>Clock Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!isClockedIn ? (
+                <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle>Time in Work</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formatElapsedTime(elapsedTime)}
+            </CardContent>
+          </Card>
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle>Total Points</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {totalPoints.toFixed(2)}
+            </CardContent>
+          </Card>
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle>AP per Hour</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {apPerHour.toFixed(2)}
+            </CardContent>
+          </Card>
+            <Card className="card-shadow">
+              <CardHeader>
+                <CardTitle>Waste Count</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {totalWastePoints}
+              </CardContent>
+            </Card>
+        </div>
         </div>
         <Card className="w-full max-w-4xl card-shadow">
           <CardHeader>
@@ -562,4 +595,3 @@ export default function SpaceDetailPage({
       </div>
   );
 }
-
