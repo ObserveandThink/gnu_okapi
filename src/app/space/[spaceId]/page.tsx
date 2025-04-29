@@ -105,10 +105,6 @@ export default function SpaceDetailPage({
   const [totalClockedInTime, setTotalClockedInTime] = useState(0);
 
   useEffect(() => {
-    loadActions(spaceId);
-  }, [spaceId, loadActions]);
-
-  useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
     if (storedSpaces) {
       const spaces: Space[] = JSON.parse(storedSpaces);
@@ -118,6 +114,10 @@ export default function SpaceDetailPage({
       }
     }
   }, [spaceId]);
+
+  useEffect(() => {
+    loadActions(spaceId);
+  }, [spaceId, loadActions]);
 
   useEffect(() => {
     recalculateTotalPoints();
@@ -352,10 +352,13 @@ export default function SpaceDetailPage({
     }
   }, [spaceId]);
 
+  useEffect(() => {
+    localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
+  }, [actions, spaceId]);
 
-  if (!space) {
-    return <div>Space not found</div>;
-  }
+  useEffect(() => {
+    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
+  }, [logEntries, spaceId]);
 
   const formatElapsedTime = (timeInSeconds: number): string => {
     const hours = Math.floor(timeInSeconds / 3600);
@@ -365,64 +368,55 @@ export default function SpaceDetailPage({
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
+  useEffect(() => {
+    const storedActions = localStorage.getItem(`actions-${spaceId}`);
+    if (storedActions) {
+      setActions(JSON.parse(storedActions));
+    }
+
+    const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
+        if (storedLogEntries) {
+            setLogEntries(JSON.parse(storedLogEntries));
+        }
+  }, [spaceId]);
+
+
+  if (!space) {
+    return <div>Space not found</div>;
+  }
+
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 w-full">
-          <Card className="card-shadow">
-            <CardHeader>
-              <CardTitle className="text-sm">Clock Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!isClockedIn ? (
-                <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
-              ) : (
-                <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="card-shadow">
-            <CardHeader>
-              <CardTitle className="text-sm">Time in Work</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {formatElapsedTime(elapsedTime)}
-            </CardContent>
-          </Card>
-          <Card className="card-shadow">
-            <CardHeader>
-              <CardTitle className="text-sm">Total Time</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {totalClockedInTime}
-            </CardContent>
-          </Card>
-          <Card className="card-shadow">
-            <CardHeader>
-              <CardTitle className="text-sm">Total Points</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {totalPoints.toFixed(2)}
-            </CardContent>
-          </Card>
-          <Card className="card-shadow">
-            <CardHeader>
-              <CardTitle className="text-sm">AP per Hour</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {apPerHour.toFixed(2)}
-            </CardContent>
-          </Card>
-          <Card className="card-shadow">
-            <CardHeader>
-              <CardTitle className="text-sm">Waste Count</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {totalWastePoints}
-            </CardContent>
-          </Card>
-        </div>
+      <table className="w-full">
+          <thead>
+            <tr>
+              <th className="text-left">Status</th>
+              <th className="text-left">Work Time</th>
+              <th className="text-left">Total Time</th>
+              <th className="text-left">AP</th>
+              <th className="text-left">AP/H</th>
+              <th className="text-left">Waste</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                {!isClockedIn ? (
+                  <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
+                )}
+              </td>
+              <td>{formatElapsedTime(elapsedTime)}</td>
+              <td>{totalClockedInTime}</td>
+              <td>{totalPoints.toFixed(2)}</td>
+              <td>{apPerHour.toFixed(2)}</td>
+              <td>{totalWastePoints}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <Card className="w-full max-w-4xl card-shadow">
         <CardHeader>
