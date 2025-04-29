@@ -1,17 +1,17 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import {
   useCallback,
   useEffect,
   useState,
 } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { toast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {v4 as uuidv4} from 'uuid';
+import {toast} from '@/hooks/use-toast';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -19,12 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Progress } from "@/components/ui/progress"
+import {ScrollArea} from "@/components/ui/scroll-area"
+import {Progress} from "@/components/ui/progress"
 import React from 'react';
-import { useSpaceContext } from '@/contexts/SpaceContext';
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
+import {useSpaceContext} from '@/contexts/SpaceContext';
+import {Textarea} from "@/components/ui/textarea";
+import {Separator} from "@/components/ui/separator";
 
 interface Space {
   id: string;
@@ -52,6 +52,7 @@ interface LogEntry {
   clockInTime?: Date;
   clockOutTime?: Date;
   minutesClockedIn?: number;
+  spaceId: string;
 }
 
 interface WasteEntry {
@@ -59,29 +60,35 @@ interface WasteEntry {
   timestamp: Date;
   type: string;
   points: number;
+  spaceId: string;
 }
 
 const timwoodsCategories = [
-  { id: 'transportation', name: 'Transportation', description: 'Unnecessary movement of materials or products.', points: 1 },
-  { id: 'inventory', name: 'Inventory', description: 'Excess raw materials, work in progress, or finished goods.', points: 2 },
-  { id: 'motion', name: 'Motion', description: 'Unnecessary movement of people.', points: 3 },
-  { id: 'waiting', name: 'Waiting', description: 'Idle time waiting for the next step in a process.', points: 4 },
-  { id: 'overprocessing', name: 'Overprocessing', description: 'Performing more work than is necessary.', points: 5 },
-  { id: 'overproduction', name: 'Overproduction', description: 'Producing more than is needed.', points: 6 },
-  { id: 'defects', name: 'Defects', description: 'Rework or scrap due to errors or defects.', points: 7 },
-  { id: 'skills', name: 'Skills', description: 'Underutilizing people\'s talents and skills', points: 8 },
+  {id: 'transportation', name: 'Transportation', description: 'Unnecessary movement of materials or products.', points: 1},
+  {id: 'inventory', name: 'Inventory', description: 'Excess raw materials, work in progress, or finished goods.', points: 2},
+  {id: 'motion', name: 'Motion', description: 'Unnecessary movement of people.', points: 3},
+  {id: 'waiting', name: 'Waiting', description: 'Idle time waiting for the next step in a process.', points: 4},
+  {
+    id: 'overprocessing',
+    name: 'Overprocessing',
+    description: 'Performing more work than is necessary.',
+    points: 5
+  },
+  {id: 'overproduction', name: 'Overproduction', description: 'Producing more than is needed.', points: 6},
+  {id: 'defects', name: 'Defects', description: 'Rework or scrap due to errors or defects.', points: 7},
+  {id: 'skills', name: 'Skills', description: 'Underutilizing people\'s talents and skills', points: 8},
 ];
 
 
 export default function SpaceDetailPage({
-  params,
-}: {
+                                          params,
+                                        }: {
   params: { spaceId: string };
 }) {
-  const { spaceId } = params;
+  const {spaceId} = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
+  const {actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry} = useSpaceContext();
   const [totalPoints, setTotalPoints] = useState(0);
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
@@ -244,10 +251,9 @@ export default function SpaceDetailPage({
     if (startTime) {
       const timeDifference = now.getTime() - startTime.getTime();
       const minutesClockedIn = Math.floor(timeDifference / (1000 * 60));
-        const secondsClockedIn = Math.floor(timeDifference / (1000));
+      const secondsClockedIn = Math.floor(timeDifference / (1000));
 
       setTotalClockedInTime(prevTime => prevTime + minutesClockedIn);
-        localStorage.setItem(`totalClockedInTime-${spaceId}`, JSON.stringify(totalClockedInTime + minutesClockedIn));
 
       const logEntry: LogEntry = {
         id: uuidv4(),
@@ -258,7 +264,7 @@ export default function SpaceDetailPage({
         clockInTime: startTime,
         clockOutTime: now,
         minutesClockedIn: minutesClockedIn,
-          spaceId: spaceId,
+        spaceId: spaceId,
       };
       addLogEntry(logEntry);
     }
@@ -271,14 +277,14 @@ export default function SpaceDetailPage({
   };
 
   const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
   };
 
   const handleBack = () => {
     router.push('/');
   };
 
-    const handleAddWasteClick = () => {
+  const handleAddWasteClick = () => {
     setIsAddWasteModalOpen(true);
   };
 
@@ -292,7 +298,7 @@ export default function SpaceDetailPage({
     });
   };
 
- const handleSaveWaste = async () => {
+  const handleSaveWaste = async () => {
     const now = new Date();
     let newWastePoints = 0;
     const newWasteEntries = selectedWasteCategories.map(categoryId => {
@@ -303,7 +309,7 @@ export default function SpaceDetailPage({
         timestamp: now,
         type: category?.name || 'Unknown',
         points: category?.points || 0,
-          spaceId: spaceId,
+        spaceId: spaceId,
       };
     });
 
@@ -321,12 +327,12 @@ export default function SpaceDetailPage({
     });
   };
 
- const handleCancelWaste = () => {
+  const handleCancelWaste = () => {
     setIsAddWasteModalOpen(false);
     setSelectedWasteCategories([]);
   };
 
-    useEffect(() => {
+  useEffect(() => {
     let total = 0;
     wasteEntries.forEach(wasteEntry => {
       total += wasteEntry.points;
@@ -335,10 +341,10 @@ export default function SpaceDetailPage({
   }, [wasteEntries]);
 
   useEffect(() => {
-      const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
-      if (storedTotalClockedInTime) {
-          setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
-      }
+    const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
+    if (storedTotalClockedInTime) {
+      setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
+    }
   }, [spaceId]);
 
 
@@ -356,12 +362,12 @@ export default function SpaceDetailPage({
 
 
   return (
-      <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-        <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full">
+    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
+      <div className="w-full max-w-4xl flex justify-between items-center mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 w-full">
           <Card className="card-shadow">
             <CardHeader>
-              <CardTitle>Clock Status</CardTitle>
+              <CardTitle className="text-sm">Clock Status</CardTitle>
             </CardHeader>
             <CardContent>
               {!isClockedIn ? (
@@ -373,233 +379,233 @@ export default function SpaceDetailPage({
           </Card>
           <Card className="card-shadow">
             <CardHeader>
-              <CardTitle>Time in Work</CardTitle>
+              <CardTitle className="text-sm">Time in Work</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="text-sm">
               {formatElapsedTime(elapsedTime)}
             </CardContent>
           </Card>
-            <Card className="card-shadow">
-              <CardHeader>
-                <CardTitle>Total Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {totalClockedInTime}
-              </CardContent>
-            </Card>
           <Card className="card-shadow">
             <CardHeader>
-              <CardTitle>Total Points</CardTitle>
+              <CardTitle className="text-sm">Total Time</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="text-sm">
+              {totalClockedInTime}
+            </CardContent>
+          </Card>
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle className="text-sm">Total Points</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
               {totalPoints.toFixed(2)}
             </CardContent>
           </Card>
           <Card className="card-shadow">
             <CardHeader>
-              <CardTitle>AP per Hour</CardTitle>
+              <CardTitle className="text-sm">AP per Hour</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="text-sm">
               {apPerHour.toFixed(2)}
             </CardContent>
           </Card>
-            <Card className="card-shadow">
-              <CardHeader>
-                <CardTitle>Waste Count</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {totalWastePoints}
-              </CardContent>
-            </Card>
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle className="text-sm">Waste Count</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {totalWastePoints}
+            </CardContent>
+          </Card>
         </div>
-        </div>
-        <Card className="w-full max-w-4xl card-shadow">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              {space.beforeImage && (
-                <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-80 object-cover" />
-              )}
-              {space.afterImage && (
-                <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-80 object-cover" />
-              )}
-            </div>
-            <div>
-              <CardDescription className="text-lg">{space.description}</CardDescription>
-              {space.goal && <CardDescription className="text-lg">Goal: {space.goal}</CardDescription>}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 w-full max-w-4xl">
-          <h2 className="text-3xl font-bold mb-4">Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {actions.map((action) => (
-              <div key={action.id} className="flex space-x-2">
-                <Button 
-                  variant="secondary" 
-                  onClick={() => handleActionClick(action, 1)}
-                  disabled={!isClockedIn}
-                >
-                  {action.name} (+{action.points * 1} points)
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => handleActionClick(action, 2)}
-                  disabled={!isClockedIn}
-                >
-                  {action.name} (+{action.points * 2} points)
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => handleActionClick(action, 5)}
-                  disabled={!isClockedIn}
-                >
-                  {action.name} (+{action.points * 5} points)
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
-            Create New Action
-          </Button>
-        </div>
-          <div className="mt-8 w-full max-w-4xl">
-            <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
-              <Button onClick={handleAddWasteClick}>Add Waste</Button>
-              <Progress value={0} className="h-4" />
-            <ScrollArea className="max-h-40">
-              {wasteEntries.map((wasteEntry) => (
-                <div key={wasteEntry.id} className="mb-2">
-                  {wasteEntry.type} - Points: {wasteEntry.points}
-                </div>
-              ))}
-            </ScrollArea>
-              <p>Total Waste Points: {totalWastePoints}</p>
-          </div>
-
-        <div className="mt-8 w-full max-w-4xl">
-          <h2 className="text-2xl font-bold mb-4">Log</h2>
-          <ScrollArea className="max-h-40">
-            {logEntries.map((logEntry) => {
-              if (logEntry.type === 'action') {
-                return (
-                  <div key={logEntry.id} className="mb-2">
-                    {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
-                  </div>
-                );
-              } else if (logEntry.type === 'clockIn') {
-                return (
-                  <div key={logEntry.id} className="mb-2">
-                    Clocked in at {formatTime(logEntry.timestamp)}
-                  </div>
-                );
-              } else if (logEntry.type === 'clockOut' && logEntry.clockInTime && logEntry.clockOutTime && logEntry.minutesClockedIn !== undefined) {
-                return (
-                  <div key={logEntry.id} className="mb-2">
-                    Clocked out at {formatTime(logEntry.timestamp)}. Total time clocked in: {logEntry.minutesClockedIn} minutes.
-                  </div>
-                );
-              }
-              return null;
-            })}
-          </ScrollArea>
-        </div>
-
-        <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
-          Back to Home
-        </Button>
-
-        <Dialog open={isCreateActionModalOpen} onOpenChange={setIsCreateActionModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Action</DialogTitle>
-              <DialogDescription>
-                Add a new action to this space.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  type="text"
-                  id="name"
-                  value={newActionName}
-                  onChange={(e) => setNewActionName(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Textarea
-                  id="description"
-                  value={newActionDescription}
-                  onChange={(e) => setNewActionDescription(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="points" className="text-right">
-                  Points
-                </Label>
-                <Input
-                  type="number"
-                  id="points"
-                  value={newActionPoints}
-                  onChange={(e) => setNewActionPoints(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="secondary" onClick={handleCancelAction}>
-                Cancel
-              </Button>
-              <Button type="submit" onClick={handleSaveAction}>
-                Create
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog open={isAddWasteModalOpen} onOpenChange={setIsAddWasteModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Waste (TIMWOODS)</DialogTitle>
-              <DialogDescription>
-                Select waste categories to add to this space.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="flex flex-wrap gap-2">
-                    {timwoodsCategories.map((category) => (
-                    <Button
-                        key={category.id}
-                        variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'}
-                        onClick={() => handleWasteCategoryClick(category.id)}
-                    >
-                        {category.name}
-                    </Button>
-                    ))}
-                </div>
-                <Progress value={0} className="h-4" />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="secondary" onClick={handleCancelWaste}>
-                Cancel
-              </Button>
-              <Button type="submit" onClick={handleSaveWaste}>
-                Add Waste
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
+      <Card className="w-full max-w-4xl card-shadow">
+        <CardHeader>
+          <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            {space.beforeImage && (
+              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-80 object-cover"/>
+            )}
+            {space.afterImage && (
+              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-80 object-cover"/>
+            )}
+          </div>
+          <div>
+            <CardDescription className="text-lg">{space.description}</CardDescription>
+            {space.goal && <CardDescription className="text-lg">Goal: {space.goal}</CardDescription>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-3xl font-bold mb-4">Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {actions.map((action) => (
+            <div key={action.id} className="flex space-x-2">
+              <Button
+                variant="secondary"
+                onClick={() => handleActionClick(action, 1)}
+                disabled={!isClockedIn}
+              >
+                {action.name} (+{action.points * 1} points)
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => handleActionClick(action, 2)}
+                disabled={!isClockedIn}
+              >
+                {action.name} (+{action.points * 2} points)
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => handleActionClick(action, 5)}
+                disabled={!isClockedIn}
+              >
+                {action.name} (+{action.points * 5} points)
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
+          Create New Action
+        </Button>
+      </div>
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
+        <Button onClick={handleAddWasteClick}>Add Waste</Button>
+        <Progress value={0} className="h-4"/>
+        <ScrollArea className="max-h-40">
+          {wasteEntries.map((wasteEntry) => (
+            <div key={wasteEntry.id} className="mb-2">
+              {wasteEntry.type} - Points: {wasteEntry.points}
+            </div>
+          ))}
+        </ScrollArea>
+        <p>Total Waste Points: {totalWastePoints}</p>
+      </div>
+
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-2xl font-bold mb-4">Log</h2>
+        <ScrollArea className="max-h-40">
+          {logEntries.map((logEntry) => {
+            if (logEntry.type === 'action') {
+              return (
+                <div key={logEntry.id} className="mb-2">
+                  {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
+                </div>
+              );
+            } else if (logEntry.type === 'clockIn') {
+              return (
+                <div key={logEntry.id} className="mb-2">
+                  Clocked in at {formatTime(logEntry.timestamp)}
+                </div>
+              );
+            } else if (logEntry.type === 'clockOut' && logEntry.clockInTime && logEntry.clockOutTime && logEntry.minutesClockedIn !== undefined) {
+              return (
+                <div key={logEntry.id} className="mb-2">
+                  Clocked out at {formatTime(logEntry.timestamp)}. Total time clocked in: {logEntry.minutesClockedIn} minutes.
+                </div>
+              );
+            }
+            return null;
+          })}
+        </ScrollArea>
+      </div>
+
+      <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
+        Back to Home
+      </Button>
+
+      <Dialog open={isCreateActionModalOpen} onOpenChange={setIsCreateActionModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Action</DialogTitle>
+            <DialogDescription>
+              Add a new action to this space.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                type="text"
+                id="name"
+                value={newActionName}
+                onChange={(e) => setNewActionName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={newActionDescription}
+                onChange={(e) => setNewActionDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="points" className="text-right">
+                Points
+              </Label>
+              <Input
+                type="number"
+                id="points"
+                value={newActionPoints}
+                onChange={(e) => setNewActionPoints(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="secondary" onClick={handleCancelAction}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleSaveAction}>
+              Create
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isAddWasteModalOpen} onOpenChange={setIsAddWasteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Waste (TIMWOODS)</DialogTitle>
+            <DialogDescription>
+              Select waste categories to add to this space.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="flex flex-wrap gap-2">
+              {timwoodsCategories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'}
+                  onClick={() => handleWasteCategoryClick(category.id)}
+                >
+                  {category.name}
+                </Button>
+              ))}
+            </div>
+            <Progress value={0} className="h-4"/>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="secondary" onClick={handleCancelWaste}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleSaveWaste}>
+              Add Waste
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
