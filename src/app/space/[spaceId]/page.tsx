@@ -25,6 +25,7 @@ import React from 'react';
 import {useSpaceContext} from '@/contexts/SpaceContext';
 import {Textarea} from "@/components/ui/textarea";
 import {Separator} from "@/components/ui/separator";
+import {format} from 'date-fns';
 
 interface Space {
   id: string;
@@ -352,13 +353,6 @@ export default function SpaceDetailPage({
     }
   }, [spaceId]);
 
-  useEffect(() => {
-    localStorage.setItem(`actions-${spaceId}`, JSON.stringify(actions));
-  }, [actions, spaceId]);
-
-  useEffect(() => {
-    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
-  }, [logEntries, spaceId]);
 
   const formatElapsedTime = (timeInSeconds: number): string => {
     const hours = Math.floor(timeInSeconds / 3600);
@@ -367,18 +361,6 @@ export default function SpaceDetailPage({
 
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
-
-  useEffect(() => {
-    const storedActions = localStorage.getItem(`actions-${spaceId}`);
-    if (storedActions) {
-      setActions(JSON.parse(storedActions));
-    }
-
-    const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
-    if (storedLogEntries) {
-      setLogEntries(JSON.parse(storedLogEntries));
-    }
-  }, [spaceId]);
 
 
   if (!space) {
@@ -608,3 +590,4 @@ export default function SpaceDetailPage({
     </div>
   );
 }
+

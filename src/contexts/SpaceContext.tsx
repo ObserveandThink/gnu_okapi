@@ -20,6 +20,9 @@ interface SpaceContextProps {
   addAction: (action: Action) => Promise<void>;
   addLogEntry: (logEntry: LogEntry) => Promise<void>;
   addWasteEntry: (wasteEntry: WasteEntry) => Promise<void>;
+  loadActions: (spaceId: string) => void;
+  loadLogEntries: (spaceId: string) => void;
+  loadWasteEntries: (spaceId: string) => void;
 }
 
 const SpaceContext = createContext<SpaceContextProps | undefined>(undefined);
