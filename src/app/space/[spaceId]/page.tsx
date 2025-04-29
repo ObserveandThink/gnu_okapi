@@ -358,7 +358,7 @@ export default function SpaceDetailPage({
   return (
       <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
         <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full">
           <Card className="card-shadow">
             <CardHeader>
               <CardTitle>Clock Status</CardTitle>
@@ -379,6 +379,14 @@ export default function SpaceDetailPage({
               {formatElapsedTime(elapsedTime)}
             </CardContent>
           </Card>
+            <Card className="card-shadow">
+              <CardHeader>
+                <CardTitle>Total Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {totalClockedInTime}
+              </CardContent>
+            </Card>
           <Card className="card-shadow">
             <CardHeader>
               <CardTitle>Total Points</CardTitle>
