@@ -24,7 +24,6 @@ import {Progress} from "@/components/ui/progress"
 import React from 'react';
 import {useSpaceContext} from '@/contexts/SpaceContext';
 import {Textarea} from "@/components/ui/textarea";
-import {Separator} from "@/components/ui/separator";
 import {format} from 'date-fns';
 import {useParams} from "next/navigation";
 
@@ -95,7 +94,7 @@ export default function SpaceDetailPage({
   const {spaceId} = useParams();
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry, loadActions, loadLogEntries, loadWasteEntries, updateSpace } = useSpaceContext();
+  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
   const [newActionPoints, setNewActionPoints] = useState(1);
@@ -130,14 +129,11 @@ export default function SpaceDetailPage({
   }, [spaceId]);
 
   useEffect(() => {
-        loadActions();
-        loadLogEntries();
-        loadWasteEntries();
         const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
         if (storedTotalClockedInTime) {
           setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
         }
-    }, [spaceId, loadActions, loadLogEntries, loadWasteEntries]);
+    }, [spaceId]);
 
   useEffect(() => {
         recalculateTotalPoints();
@@ -229,7 +225,6 @@ export default function SpaceDetailPage({
       };
 
       await addAction(newAction);
-      loadActions();
 
       setNewActionName('');
       setNewActionDescription('');
@@ -284,7 +279,6 @@ export default function SpaceDetailPage({
 
       setTotalClockedInTime(prevTime => prevTime + minutesClockedIn);
       localStorage.setItem(`totalClockedInTime-${spaceId}`, JSON.stringify(totalClockedInTime + minutesClockedIn));
-      updateSpaceTime(minutesClockedIn);
 
       const logEntry: LogEntry = {
         id: uuidv4(),
@@ -305,17 +299,6 @@ export default function SpaceDetailPage({
       title: 'Clocked Out!',
       description: 'You are now clocked out. Time to take a break!',
     });
-  };
-
-  const updateSpaceTime = async (minutesClockedIn: number) => {
-    if (space) {
-      const updatedSpace: Space = {
-        ...space,
-        totalClockedInTime: space.totalClockedInTime + minutesClockedIn,
-        dateModified: new Date(),
-      };
-      await updateSpace(updatedSpace);
-    }
   };
 
   const formatTime = (date: Date): string => {
@@ -427,22 +410,8 @@ export default function SpaceDetailPage({
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-      {/* Dashboard */}
-      <div className="w-full max-w-4xl mb-4">
-        <Card className="card-shadow">
-          <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-            <div>Status: {!isClockedIn ? <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button> : <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>}</div>
-            <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
-            <div>Total Time: {totalClockedInTime} minutes</div>
-            <div>AP: {totalPoints.toFixed(2)}</div>
-            <div>AP/H: {apPerHour.toFixed(2)}</div>
-            <div>Waste: {totalWastePoints}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Space Details */}
-      <Card className="w-full max-w-4xl card-shadow">
+       {/* Space Details */}
+       <Card className="w-full max-w-4xl mb-4 card-shadow">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">{space.name}</CardTitle>
         </CardHeader>
@@ -461,6 +430,20 @@ export default function SpaceDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Dashboard */}
+      <div className="w-full max-w-4xl mb-4">
+        <Card className="card-shadow">
+          <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+            <div>Status: {!isClockedIn ? <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button> : <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>}</div>
+            <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
+            <div>Total Time: {totalClockedInTime} minutes</div>
+            <div>AP: {totalPoints.toFixed(2)}</div>
+            <div>AP/H: {apPerHour.toFixed(2)}</div>
+            <div>Waste: {totalWastePoints}</div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Actions */}
       <div className="mt-4 w-full max-w-4xl">
