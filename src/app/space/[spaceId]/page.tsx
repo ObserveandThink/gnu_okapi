@@ -412,11 +412,11 @@ export default function SpaceDetailPage({
     <div className="flex flex-col items-center justify-start min-h-screen py-4 bg-background p-2">
       {/* Space Details */}
       <Card className="w-full max-w-4xl mb-2 card-shadow">
-        <CardHeader className="p-3">
+        <CardHeader className="p-2">
           <CardTitle className="text-xl font-bold text-center">{space.name}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3">
-          <div>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2 p-2">
+          <div className="flex flex-col items-center">
             {space.beforeImage && (
               <img src={space.beforeImage} alt="Before" className="rounded-md mb-1 max-h-32 object-cover"/>
             )}
@@ -738,3 +738,4 @@ export default function SpaceDetailPage({
     </div>
   );
 }
+
