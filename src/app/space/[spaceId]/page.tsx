@@ -88,7 +88,7 @@ export default function SpaceDetailPage({
   const {spaceId} = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const {actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry} = useSpaceContext();
+  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry, loadActions } = useSpaceContext();
   const [totalPoints, setTotalPoints] = useState(0);
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
@@ -104,6 +104,9 @@ export default function SpaceDetailPage({
   const [totalWastePoints, setTotalWastePoints] = useState(0);
   const [totalClockedInTime, setTotalClockedInTime] = useState(0);
 
+  useEffect(() => {
+    loadActions(spaceId);
+  }, [spaceId, loadActions]);
 
   useEffect(() => {
     const storedSpaces = localStorage.getItem('spaces');
@@ -202,6 +205,7 @@ export default function SpaceDetailPage({
       };
 
       await addAction(newAction);
+      loadActions(spaceId);
 
       setNewActionName('');
       setNewActionDescription('');
@@ -235,6 +239,7 @@ export default function SpaceDetailPage({
       type: 'clockIn',
       spaceId: spaceId,
     };
+
     addLogEntry(logEntry);
 
     toast({

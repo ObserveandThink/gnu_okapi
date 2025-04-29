@@ -33,7 +33,6 @@ export const useSpaceContext = () => {
 };
 
 interface SpaceProviderProps {
-  spaceId: string;
   children: React.ReactNode;
 }
 
@@ -50,6 +49,11 @@ interface LogEntry {
   timestamp: Date;
   actionName: string;
   points: number;
+  type: 'action' | 'clockIn' | 'clockOut';
+  clockInTime?: Date;
+  clockOutTime?: Date;
+  minutesClockedIn?: number;
+  spaceId: string;
 }
 
 interface WasteEntry {
@@ -57,6 +61,7 @@ interface WasteEntry {
   timestamp: Date;
   type: string;
   points: number;
+  spaceId: string;
 }
 
 // IndexedDB helper functions
@@ -86,7 +91,7 @@ const addItem = (db: IDBDatabase, storeName: string, item: any) => {
   return new Promise<void>((resolve, reject) => {
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
-    const request = store.add(item);
+    const request = store.put(item);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve();
@@ -105,7 +110,7 @@ const getAllItems = (db: IDBDatabase, storeName: string) => {
 };
 
 
-export const SpaceProvider = ({ spaceId, children }: SpaceProviderProps) => {
+export const SpaceProvider = ({ children }: SpaceProviderProps) => {
   const [actions, setActions] = useState<Action[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
@@ -124,40 +129,38 @@ export const SpaceProvider = ({ spaceId, children }: SpaceProviderProps) => {
     initializeDB();
   }, []);
 
-  useEffect(() => {
+  const loadActions = useCallback(async (spaceId: string) => {
     if (db) {
-      const loadActions = async () => {
-        try {
-          const loadedActions = await getAllItems(db, 'actions') as Action[];
-          setActions(loadedActions.filter(action => action.spaceId === spaceId));
-        } catch (error) {
-          console.error("Failed to load actions:", error);
-        }
-      };
-
-      const loadLogEntries = async () => {
-        try {
-          const loadedLogEntries = await getAllItems(db, 'logEntries') as LogEntry[];
-          setLogEntries(loadedLogEntries.filter(entry => (entry as any).spaceId === spaceId));
-        } catch (error) {
-          console.error("Failed to load log entries:", error);
-        }
-      };
-
-      const loadWasteEntries = async () => {
-        try {
-          const loadedWasteEntries = await getAllItems(db, 'wasteEntries') as WasteEntry[];
-          setWasteEntries(loadedWasteEntries.filter(entry => (entry as any).spaceId === spaceId));
-        } catch (error) {
-          console.error("Failed to load waste entries:", error);
-        }
-      };
-
-      loadActions();
-      loadLogEntries();
-      loadWasteEntries();
+      try {
+        const loadedActions = await getAllItems(db, 'actions') as Action[];
+        setActions(loadedActions.filter(action => action.spaceId === spaceId));
+      } catch (error) {
+        console.error("Failed to load actions:", error);
+      }
     }
-  }, [db, spaceId]);
+  }, [db]);
+
+  const loadLogEntries = useCallback(async (spaceId: string) => {
+    if (db) {
+      try {
+        const loadedLogEntries = await getAllItems(db, 'logEntries') as LogEntry[];
+        setLogEntries(loadedLogEntries.filter(entry => (entry as any).spaceId === spaceId));
+      } catch (error) {
+        console.error("Failed to load log entries:", error);
+      }
+    }
+  }, [db]);
+
+  const loadWasteEntries = useCallback(async (spaceId: string) => {
+    if (db) {
+      try {
+        const loadedWasteEntries = await getAllItems(db, 'wasteEntries') as WasteEntry[];
+        setWasteEntries(loadedWasteEntries.filter(entry => (entry as any).spaceId === spaceId));
+      } catch (error) {
+        console.error("Failed to load waste entries:", error);
+      }
+    }
+  }, [db]);
 
   const addAction = useCallback(async (action: Action) => {
     if (db) {
@@ -174,29 +177,44 @@ export const SpaceProvider = ({ spaceId, children }: SpaceProviderProps) => {
   const addLogEntry = useCallback(async (logEntry: LogEntry) => {
     if (db) {
       try {
-        await addItem(db, 'logEntries', { ...logEntry, spaceId });
+        await addItem(db, 'logEntries', logEntry);
         setLogEntries(prevLogEntries => [logEntry, ...prevLogEntries]);
       } catch (error) {
         console.error("Failed to add log entry:", error);
         toast({ title: "Error", description: "Failed to add log entry.", variant: "destructive" });
       }
     }
-  }, [db, spaceId]);
+  }, [db]);
 
   const addWasteEntry = useCallback(async (wasteEntry: WasteEntry) => {
     if (db) {
       try {
-        await addItem(db, 'wasteEntries', { ...wasteEntry, spaceId });
+        await addItem(db, 'wasteEntries', wasteEntry);
         setWasteEntries(prevWasteEntries => [wasteEntry, ...prevWasteEntries]);
       } catch (error) {
         console.error("Failed to add waste entry:", error);
         toast({ title: "Error", description: "Failed to add waste entry.", variant: "destructive" });
       }
     }
-  }, [db, spaceId]);
+  }, [db]);
+
+  const contextValue = {
+    actions,
+    setActions,
+    logEntries,
+    setLogEntries,
+    wasteEntries,
+    setWasteEntries,
+    addAction,
+    addLogEntry,
+    addWasteEntry,
+    loadActions,
+    loadLogEntries,
+    loadWasteEntries
+  };
 
   return (
-    <SpaceContext.Provider value={{ actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry }}>
+    <SpaceContext.Provider value={contextValue}>
       {children}
     </SpaceContext.Provider>
   );
