@@ -92,10 +92,10 @@ export default function SpaceDetailPage({
 }: {
   params: { spaceId: string };
 }) {
-  const { spaceId } = params;
+  const {spaceId} = useParams();
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
+  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry, loadActions, loadLogEntries, loadWasteEntries, updateSpace } = useSpaceContext();
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
   const [newActionPoints, setNewActionPoints] = useState(1);
@@ -125,28 +125,6 @@ export default function SpaceDetailPage({
       }
     }
   }, [spaceId]);
-
-  const loadActions = useCallback(() => {
-    const storedActions = localStorage.getItem(`actions-${spaceId}`);
-    if (storedActions) {
-      setActions(JSON.parse(storedActions));
-    }
-  }, [spaceId, setActions]);
-
-  const loadLogEntries = useCallback(() => {
-    const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
-    if (storedLogEntries) {
-      setLogEntries(JSON.parse(storedLogEntries));
-    }
-  }, [spaceId, setLogEntries]);
-
-  const loadWasteEntries = useCallback(() => {
-    const storedWasteEntries = localStorage.getItem(`wasteEntries-${spaceId}`);
-    if (storedWasteEntries) {
-      setWasteEntries(JSON.parse(storedWasteEntries));
-    }
-  }, [spaceId, setWasteEntries]);
-
 
   useEffect(() => {
         loadActions();
@@ -225,7 +203,6 @@ export default function SpaceDetailPage({
 
     addLogEntry(logEntry);
     recalculateTotalPoints();
-    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
 
     toast({
       title: 'Action Logged!',
@@ -248,7 +225,8 @@ export default function SpaceDetailPage({
         points: Number(newActionPoints),
       };
 
-      addAction(newAction);
+      await addAction(newAction);
+      loadActions();
 
       setNewActionName('');
       setNewActionDescription('');
@@ -257,7 +235,7 @@ export default function SpaceDetailPage({
 
       toast({
         title: 'Action Created!',
-        description: `Action "${newAction.name}" has been successfully created.`,
+        description: `Action "${newActionName}" has been successfully created.`,
       });
     }
   };
@@ -284,7 +262,6 @@ export default function SpaceDetailPage({
     };
 
     addLogEntry(logEntry);
-    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
 
     toast({
       title: 'Clocked In!',
@@ -304,6 +281,7 @@ export default function SpaceDetailPage({
 
       setTotalClockedInTime(prevTime => prevTime + minutesClockedIn);
       localStorage.setItem(`totalClockedInTime-${spaceId}`, JSON.stringify(totalClockedInTime + minutesClockedIn));
+      updateSpaceTime(minutesClockedIn);
 
       const logEntry: LogEntry = {
         id: uuidv4(),
@@ -317,7 +295,6 @@ export default function SpaceDetailPage({
         spaceId: spaceId,
       };
       addLogEntry(logEntry);
-      localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
     }
     setStartTime(null);
 
@@ -327,8 +304,25 @@ export default function SpaceDetailPage({
     });
   };
 
+  const updateSpaceTime = async (minutesClockedIn: number) => {
+    if (space) {
+      const updatedSpace: Space = {
+        ...space,
+        totalClockedInTime: space.totalClockedInTime + minutesClockedIn,
+        dateModified: new Date(),
+      };
+      await updateSpace(updatedSpace);
+    }
+  };
+
   const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    if (!date) return 'N/A';
+    try {
+        return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    } catch (e) {
+        console.error("Error formatting time:", e);
+        return 'Invalid Date';
+    }
   };
 
   const handleBack = () => {
@@ -371,7 +365,6 @@ export default function SpaceDetailPage({
     setTotalWastePoints(prevPoints => prevPoints + newWastePoints);
     setSelectedWasteCategories([]);
     setIsAddWasteModalOpen(false);
-    localStorage.setItem(`wasteEntries-${spaceId}`, JSON.stringify(wasteEntries));
 
     toast({
       title: 'Waste Added!',
@@ -409,8 +402,6 @@ export default function SpaceDetailPage({
         timestamp: new Date(),
       };
       setComments([...comments, newComment]);
-      setNewCommentText('');
-      setNewCommentImage(null);
     }
   };
 
@@ -433,20 +424,20 @@ export default function SpaceDetailPage({
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-      <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-          <div>
-            Status: {!isClockedIn ? (
-              <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
-            )}
-          </div>
-          <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
-          <div>Total Time: {totalClockedInTime} minutes</div>
-          <div>AP: {totalPoints.toFixed(2)}</div>
-          <div>AP/H: {apPerHour.toFixed(2)}</div>
-          <div>Waste: {totalWastePoints}</div>
-      </div>
+        <div className="w-full max-w-4xl flex justify-between items-center mb-4">
+            <div>
+                Status: {!isClockedIn ? (
+                    <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
+                ) : (
+                    <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
+                )}
+            </div>
+            <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
+            <div>Total Time: {totalClockedInTime} minutes</div>
+            <div>AP: {totalPoints.toFixed(2)}</div>
+            <div>AP/H: {apPerHour.toFixed(2)}</div>
+            <div>Waste: {totalWastePoints}</div>
+        </div>
       <Card className="w-full max-w-4xl card-shadow">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
