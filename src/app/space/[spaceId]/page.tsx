@@ -80,20 +80,18 @@ const timwoodsCategories = [
   {id: 'inventory', name: 'Inventory', description: 'Excess raw materials, work in progress, or finished goods.', points: 2},
   {id: 'motion', name: 'Motion', description: 'Unnecessary movement of people.', points: 3},
   {id: 'waiting', name: 'Waiting', description: 'Idle time waiting for the next step in a process.', points: 4},
-  {
-    id: 'overprocessing',
-    name: 'Overprocessing',
-    description: 'Performing more work than is necessary.',
-    points: 5
-  },
+  {id: 'overprocessing', name: 'Overprocessing', description: 'Performing more work than is necessary.', points: 5},
   {id: 'overproduction', name: 'Overproduction', description: 'Producing more than is needed.', points: 6},
   {id: 'defects', name: 'Defects', description: 'Rework or scrap due to errors or defects.', points: 7},
   {id: 'skills', name: 'Skills', description: 'Underutilizing people\'s talents and skills', points: 8},
 ];
 
 
-export default function SpaceDetailPage() {
-  const params = useParams();
+export default function SpaceDetailPage({
+  params,
+}: {
+  params: { spaceId: string };
+}) {
   const { spaceId } = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
@@ -436,34 +434,18 @@ export default function SpaceDetailPage() {
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="text-left">Status</th>
-              <th className="text-left">Work Time</th>
-              <th className="text-left">Total Time</th>
-              <th className="text-left">AP</th>
-              <th className="text-left">AP/H</th>
-              <th className="text-left">Waste</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                {!isClockedIn ? (
-                  <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
-                )}
-              </td>
-              <td>{formatElapsedTime(elapsedTime)}</td>
-              <td>{totalClockedInTime}</td>
-              <td>{totalPoints.toFixed(2)}</td>
-              <td>{apPerHour.toFixed(2)}</td>
-              <td>{totalWastePoints}</td>
-            </tr>
-          </tbody>
-        </table>
+          <div>
+            Status: {!isClockedIn ? (
+              <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
+            )}
+          </div>
+          <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
+          <div>Total Time: {totalClockedInTime} minutes</div>
+          <div>AP: {totalPoints.toFixed(2)}</div>
+          <div>AP/H: {apPerHour.toFixed(2)}</div>
+          <div>Waste: {totalWastePoints}</div>
       </div>
       <Card className="w-full max-w-4xl card-shadow">
         <CardHeader>
@@ -700,4 +682,3 @@ export default function SpaceDetailPage() {
     </div>
   );
 }
-
