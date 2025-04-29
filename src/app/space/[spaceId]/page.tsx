@@ -427,49 +427,52 @@ export default function SpaceDetailPage({
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-        <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-            <div>
-                Status: {!isClockedIn ? (
-                    <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button>
-                ) : (
-                    <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>
-                )}
-            </div>
+      {/* Dashboard */}
+      <div className="w-full max-w-4xl mb-4">
+        <Card className="card-shadow">
+          <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+            <div>Status: {!isClockedIn ? <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button> : <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>}</div>
             <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
             <div>Total Time: {totalClockedInTime} minutes</div>
             <div>AP: {totalPoints.toFixed(2)}</div>
             <div>AP/H: {apPerHour.toFixed(2)}</div>
             <div>Waste: {totalWastePoints}</div>
-        </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Space Details */}
       <Card className="w-full max-w-4xl card-shadow">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center">{space.name}</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">{space.name}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             {space.beforeImage && (
-              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-80 object-cover"/>
+              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-40 object-cover"/>
             )}
             {space.afterImage && (
-              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-80 object-cover"/>
+              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-40 object-cover"/>
             )}
           </div>
           <div>
-            <CardDescription className="text-lg">{space.description}</CardDescription>
-            {space.goal && <CardDescription className="text-lg">Goal: {space.goal}</CardDescription>}
+            <CardDescription className="text-sm">{space.description}</CardDescription>
+            {space.goal && <CardDescription className="text-sm">Goal: {space.goal}</CardDescription>}
           </div>
         </CardContent>
       </Card>
 
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-3xl font-bold mb-4">Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Actions */}
+      <div className="mt-4 w-full max-w-4xl">
+        <h2 className="text-xl font-bold mb-2">Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {actions.map((action) => (
-            <div key={action.id} className="flex space-x-2">
+            <div key={action.id} className="flex space-x-1">
               <Button
                 variant="secondary"
                 onClick={() => handleActionClick(action, 1)}
                 disabled={!isClockedIn}
+                className="text-xs"
               >
                 {action.name} (+{action.points * 1} points)
               </Button>
@@ -477,6 +480,7 @@ export default function SpaceDetailPage({
                 variant="secondary"
                 onClick={() => handleActionClick(action, 2)}
                 disabled={!isClockedIn}
+                className="text-xs"
               >
                 {action.name} (+{action.points * 2} points)
               </Button>
@@ -484,6 +488,7 @@ export default function SpaceDetailPage({
                 variant="secondary"
                 onClick={() => handleActionClick(action, 5)}
                 disabled={!isClockedIn}
+                className="text-xs"
               >
                 {action.name} (+{action.points * 5} points)
               </Button>
@@ -491,14 +496,16 @@ export default function SpaceDetailPage({
           ))}
         </div>
 
-        <Button className="mt-4 w-full" size="lg" onClick={handleCreateAction}>
+        <Button className="mt-2 w-full" size="sm" onClick={handleCreateAction}>
           Create New Action
         </Button>
       </div>
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
-        <Button onClick={handleAddWasteClick}>Add Waste</Button>
-        <Progress value={0} className="h-4"/>
+
+      {/* Waste Tracking */}
+      <div className="mt-4 w-full max-w-4xl">
+        <h2 className="text-xl font-bold mb-2">Waste Tracking</h2>
+        <Button size="sm" onClick={handleAddWasteClick}>Add Waste</Button>
+        <Progress value={0} className="h-2"/>
                 {wasteEntries.length > 0 ? (
                     <>
                         <div>
@@ -511,11 +518,12 @@ export default function SpaceDetailPage({
                 ) : (
                     <div>No waste entries yet.</div>
                 )}
-        <p>Total Waste Points: {totalWastePoints}</p>
+        <p className="text-sm">Total Waste Points: {totalWastePoints}</p>
       </div>
 
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-2xl font-bold mb-4">Log</h2>
+      {/* Log */}
+      <div className="mt-4 w-full max-w-4xl">
+        <h2 className="text-xl font-bold mb-2">Log</h2>
                 {logEntries.length > 0 ? (
                     <>
                         <div>
@@ -531,8 +539,9 @@ export default function SpaceDetailPage({
                 )}
       </div>
 
-      <div className="mt-8 w-full max-w-4xl">
-        <h2 className="text-2xl font-bold mb-4">Comments</h2>
+      {/* Comments */}
+      <div className="mt-4 w-full max-w-4xl">
+        <h2 className="text-xl font-bold mb-2">Comments</h2>
                 {comments.length > 0 ? (
                     <>
                         <div>
@@ -545,11 +554,11 @@ export default function SpaceDetailPage({
                 ) : (
                     <div>No comments yet.</div>
                 )}
-        <div className="mt-4">
+        <div className="mt-2">
           <Label htmlFor="comment" className="block text-sm font-medium text-foreground">Add a Comment</Label>
           <Textarea
             id="comment"
-            className="w-full p-2 border rounded text-foreground"
+            className="w-full p-2 border rounded text-foreground text-sm"
             placeholder="Enter your comment"
             value={newCommentText}
             onChange={(e) => setNewCommentText(e.target.value)}
@@ -561,22 +570,24 @@ export default function SpaceDetailPage({
             type="file"
             id="image"
             accept="image/*"
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded text-sm"
             onChange={handleImageUpload}
           />
           {newCommentImage && (
             <img src={newCommentImage} alt="New Comment Image" className="mt-2 rounded max-h-40 object-cover" />
           )}
         </div>
-        <Button onClick={handleAddComment} className="mt-4 bg-primary text-primary-foreground rounded p-3 font-bold">
+        <Button onClick={handleAddComment} className="mt-2 bg-primary text-primary-foreground rounded p-3 font-bold text-sm">
           Add Comment
         </Button>
       </div>
 
-      <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
+      {/* Back Button */}
+      <Button className="mt-4 w-full max-w-4xl" size="sm" variant="ghost" onClick={handleBack}>
         Back to Home
       </Button>
 
+      {/* Modals */}
       <Dialog open={isCreateActionModalOpen} onOpenChange={setIsCreateActionModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -585,9 +596,9 @@ export default function SpaceDetailPage({
               Add a new action to this space.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+          <div className="grid gap-2 py-2">
+            <div className="grid grid-cols-4 items-center gap-2">
+              <Label htmlFor="name" className="text-right text-sm">
                 Name
               </Label>
               <Input
@@ -595,22 +606,22 @@ export default function SpaceDetailPage({
                 id="name"
                 value={newActionName}
                 onChange={(e) => setNewActionName(e.target.value)}
-                className="col-span-3"
+                className="col-span-3 text-sm"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
+            <div className="grid grid-cols-4 items-center gap-2">
+              <Label htmlFor="description" className="text-right text-sm">
                 Description
               </Label>
               <Textarea
                 id="description"
                 value={newActionDescription}
                 onChange={(e) => setNewActionDescription(e.target.value)}
-                className="col-span-3"
+                className="col-span-3 text-sm"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="points" className="text-right">
+            <div className="grid grid-cols-4 items-center gap-2">
+              <Label htmlFor="points" className="text-right text-sm">
                 Points
               </Label>
               <Input
@@ -618,15 +629,15 @@ export default function SpaceDetailPage({
                 id="points"
                 value={newActionPoints}
                 onChange={(e) => setNewActionPoints(e.target.value)}
-                className="col-span-3"
+                className="col-span-3 text-sm"
               />
             </div>
           </div>
           <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={handleCancelAction}>
+            <Button variant="secondary" size="sm" onClick={handleCancelAction}>
               Cancel
             </Button>
-            <Button type="submit" onClick={handleSaveAction}>
+            <Button type="submit" size="sm" onClick={handleSaveAction}>
               Create
             </Button>
           </div>
@@ -640,25 +651,26 @@ export default function SpaceDetailPage({
               Select waste categories to add to this space.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 py-2">
+            <div className="flex flex-wrap gap-1">
               {timwoodsCategories.map((category) => (
                 <Button
                   key={category.id}
                   variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'}
                   onClick={() => handleWasteCategoryClick(category.id)}
+                  size="sm"
                 >
                   {category.name}
                 </Button>
               ))}
             </div>
-            <Progress value={0} className="h-4"/>
+            <Progress value={0} className="h-2"/>
           </div>
           <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={handleCancelWaste}>
+            <Button variant="secondary" size="sm" onClick={handleCancelWaste}>
               Cancel
             </Button>
-            <Button type="submit" onClick={handleSaveWaste}>
+            <Button type="submit" size="sm" onClick={handleSaveWaste}>
               Add Waste
             </Button>
           </div>
@@ -676,19 +688,19 @@ export default function SpaceDetailPage({
                         {logEntries.map((logEntry) => {
                             if (logEntry.type === 'action') {
                                 return (
-                                    <div key={logEntry.id} className="mb-2">
+                                    <div key={logEntry.id} className="mb-1 text-sm">
                                         {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
                                     </div>
                                 );
                             } else if (logEntry.type === 'clockIn') {
                                 return (
-                                    <div key={logEntry.id} className="mb-2">
+                                    <div key={logEntry.id} className="mb-1 text-sm">
                                         Clocked in at {formatTime(logEntry.timestamp)}
                                     </div>
                                 );
                             } else if (logEntry.type === 'clockOut' && logEntry.clockInTime && logEntry.clockOutTime && logEntry.minutesClockedIn !== undefined) {
                                 return (
-                                    <div key={logEntry.id} className="mb-2">
+                                    <div key={logEntry.id} className="mb-1 text-sm">
                                         Clocked out at {formatTime(logEntry.timestamp)}. Total time clocked in: {logEntry.minutesClockedIn} minutes.
                                     </div>
                                 );
@@ -708,7 +720,7 @@ export default function SpaceDetailPage({
                     </DialogHeader>
                     <ScrollArea className="max-h-80">
                         {wasteEntries.map((wasteEntry) => (
-                            <div key={wasteEntry.id} className="mb-2">
+                            <div key={wasteEntry.id} className="mb-1 text-sm">
                                 {wasteEntry.type} - Points: {wasteEntry.points}
                             </div>
                         ))}
@@ -728,10 +740,10 @@ export default function SpaceDetailPage({
                             <Card key={comment.id} className="card-shadow">
                                 <CardContent>
                                     {comment.imageUrl && (
-                                        <img src={comment.imageUrl} alt="Comment Image" className="rounded-md mb-2 max-h-40 object-cover"/>
+                                        <img src={comment.imageUrl} alt="Comment Image" className="rounded-md mb-1 max-h-40 object-cover"/>
                                     )}
-                                    <CardDescription className="text-foreground">{comment.text}</CardDescription>
-                                    <p className="text-sm text-muted-foreground">
+                                    <CardDescription className="text-sm">{comment.text}</CardDescription>
+                                    <p className="text-xs text-muted-foreground">
                                         {format(comment.timestamp, 'MMM dd, yyyy hh:mm a')}
                                     </p>
                                 </CardContent>
