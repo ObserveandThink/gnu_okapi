@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 
 interface SpaceContextProps {
+  spaces: Space[];
   actions: Action[];
   setActions: React.Dispatch<React.SetStateAction<Action[]>>;
   logEntries: LogEntry[];
@@ -20,9 +21,10 @@ interface SpaceContextProps {
   addAction: (action: Action) => Promise<void>;
   addLogEntry: (logEntry: LogEntry) => Promise<void>;
   addWasteEntry: (wasteEntry: WasteEntry) => Promise<void>;
-  loadActions: (spaceId: string) => void;
-  loadLogEntries: (spaceId: string) => void;
-  loadWasteEntries: (spaceId: string) => void;
+  loadActions: () => void;
+  loadLogEntries: () => void;
+  loadWasteEntries: () => void;
+  updateSpace: (space: Space) => Promise<void>;
 }
 
 const SpaceContext = createContext<SpaceContextProps | undefined>(undefined);
@@ -37,6 +39,18 @@ export const useSpaceContext = () => {
 
 interface SpaceProviderProps {
   children: React.ReactNode;
+}
+
+interface Space {
+  id: string;
+  name: string;
+  description?: string;
+  goal?: string;
+  beforeImage?: string | null;
+  afterImage?: string | null;
+  dateCreated: Date;
+  dateModified: Date;
+  totalClockedInTime: number;
 }
 
 interface Action {
@@ -77,6 +91,9 @@ const openDB = (dbName: string, version: number) => {
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('spaces')) {
+        db.createObjectStore('spaces', { keyPath: 'id' });
+      }
       if (!db.objectStoreNames.contains('actions')) {
         db.createObjectStore('actions', { keyPath: 'id' });
       }
@@ -101,6 +118,18 @@ const addItem = (db: IDBDatabase, storeName: string, item: any) => {
   });
 };
 
+const getItem = (db: IDBDatabase, storeName: string, id: string) => {
+  return new Promise<any>((resolve, reject) => {
+    const transaction = db.transaction([storeName], 'readonly');
+    const store = transaction.objectStore(storeName);
+    const request = store.get(id);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+};
+
+
 const getAllItems = (db: IDBDatabase, storeName: string) => {
   return new Promise<any[]>((resolve, reject) => {
     const transaction = db.transaction([storeName], 'readonly');
@@ -114,6 +143,7 @@ const getAllItems = (db: IDBDatabase, storeName: string) => {
 
 
 export const SpaceProvider = ({ children }: SpaceProviderProps) => {
+  const [spaces, setSpaces] = useState<Space[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
@@ -132,33 +162,33 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     initializeDB();
   }, []);
 
-  const loadActions = useCallback(async (spaceId: string) => {
+  const loadActions = useCallback(async () => {
     if (db) {
       try {
         const loadedActions = await getAllItems(db, 'actions') as Action[];
-        setActions(loadedActions.filter(action => action.spaceId === spaceId));
+        setActions(loadedActions);
       } catch (error) {
         console.error("Failed to load actions:", error);
       }
     }
   }, [db]);
 
-  const loadLogEntries = useCallback(async (spaceId: string) => {
+  const loadLogEntries = useCallback(async () => {
     if (db) {
       try {
         const loadedLogEntries = await getAllItems(db, 'logEntries') as LogEntry[];
-        setLogEntries(loadedLogEntries.filter(entry => (entry as any).spaceId === spaceId));
+        setLogEntries(loadedLogEntries);
       } catch (error) {
         console.error("Failed to load log entries:", error);
       }
     }
   }, [db]);
 
-  const loadWasteEntries = useCallback(async (spaceId: string) => {
+  const loadWasteEntries = useCallback(async () => {
     if (db) {
       try {
         const loadedWasteEntries = await getAllItems(db, 'wasteEntries') as WasteEntry[];
-        setWasteEntries(loadedWasteEntries.filter(entry => (entry as any).spaceId === spaceId));
+        setWasteEntries(loadedWasteEntries);
       } catch (error) {
         console.error("Failed to load waste entries:", error);
       }
@@ -201,7 +231,22 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     }
   }, [db]);
 
+  const updateSpace = useCallback(async (space: Space) => {
+    if (db) {
+      try {
+        await addItem(db, 'spaces', space);
+        setSpaces(prevSpaces => {
+          return prevSpaces.map(s => s.id === space.id ? space : s);
+        });
+      } catch (error) {
+        console.error("Failed to update space:", error);
+        toast({ title: "Error", description: "Failed to update space.", variant: "destructive" });
+      }
+    }
+  }, [db]);
+
   const contextValue = {
+    spaces,
     actions,
     setActions,
     logEntries,
@@ -213,7 +258,8 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     addWasteEntry,
     loadActions,
     loadLogEntries,
-    loadWasteEntries
+    loadWasteEntries,
+    updateSpace,
   };
 
   return (

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { format } from 'date-fns';
 
 interface Space {
   id: string;
@@ -13,11 +14,15 @@ interface Space {
   goal?: string;
   beforeImage?: string | null;
   afterImage?: string | null;
+  dateCreated: Date;
+  dateModified: Date;
+  totalClockedInTime: number;
 }
 
 export default function Home() {
   const router = useRouter();
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [sortBy, setSortBy] = useState<"dateCreated" | "dateModified">("dateCreated");
 
   useEffect(() => {
     const storedSpaces = localStorage.getItem("spaces");
@@ -40,6 +45,19 @@ export default function Home() {
     localStorage.setItem("spaces", JSON.stringify(updatedSpaces));
   };
 
+  const sortedSpaces = [...spaces].sort((a, b) => {
+    if (sortBy === "dateCreated") {
+      return new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
+    } else {
+      return new Date(a.dateModified).getTime() - new Date(b.dateModified).getTime();
+    }
+  });
+
+  const handleSortBy = (newSortBy: "dateCreated" | "dateModified") => {
+    setSortBy(newSortBy);
+  };
+
+
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
       <header className="w-full text-center mb-8">
@@ -61,8 +79,25 @@ export default function Home() {
         </section>
 
         <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Spaces</h2>
+            <div>
+              <Button 
+                variant={sortBy === "dateCreated" ? "default" : "outline"}
+                onClick={() => handleSortBy("dateCreated")}
+              >
+                Sort by Date Created
+              </Button>
+              <Button 
+                variant={sortBy === "dateModified" ? "default" : "outline"}
+                onClick={() => handleSortBy("dateModified")}
+              >
+                Sort by Date Modified
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {spaces.map((space) => (
+            {sortedSpaces.map((space) => (
               <Card 
                 className="bg-card rounded-lg p-4 card-shadow cursor-pointer hover:shadow-md transition-shadow duration-300" 
                 key={space.id}
@@ -79,6 +114,15 @@ export default function Home() {
                   )}
                   <CardDescription className="text-foreground">{space.description}</CardDescription>
                   {space.goal && <CardDescription className="text-foreground">Goal: {space.goal}</CardDescription>}
+                  <CardDescription className="text-sm text-muted-foreground">
+                    Date Created: {format(new Date(space.dateCreated), 'MMM dd, yyyy')}
+                  </CardDescription>
+                  <CardDescription className="text-sm text-muted-foreground">
+                    Date Modified: {format(new Date(space.dateModified), 'MMM dd, yyyy')}
+                  </CardDescription>
+                   <CardDescription className="text-sm text-muted-foreground">
+                    Total Clocked In Time: {space.totalClockedInTime} minutes
+                  </CardDescription>
                 </CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

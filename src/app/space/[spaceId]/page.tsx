@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useRouter} from 'next/navigation';
@@ -26,6 +27,7 @@ import {useSpaceContext} from '@/contexts/SpaceContext';
 import {Textarea} from "@/components/ui/textarea";
 import {Separator} from "@/components/ui/separator";
 import {format} from 'date-fns';
+import {useParams} from "next/navigation";
 
 interface Space {
   id: string;
@@ -34,6 +36,9 @@ interface Space {
   goal?: string;
   beforeImage?: string | null;
   afterImage?: string | null;
+  dateCreated: Date;
+  dateModified: Date;
+  totalClockedInTime: number;
 }
 
 interface Action {
@@ -64,6 +69,13 @@ interface WasteEntry {
   spaceId: string;
 }
 
+interface Comment {
+  id: string;
+  text: string;
+  imageUrl?: string | null;
+  timestamp: Date;
+}
+
 const timwoodsCategories = [
   {id: 'transportation', name: 'Transportation', description: 'Unnecessary movement of materials or products.', points: 1},
   {id: 'inventory', name: 'Inventory', description: 'Excess raw materials, work in progress, or finished goods.', points: 2},
@@ -81,15 +93,12 @@ const timwoodsCategories = [
 ];
 
 
-export default function SpaceDetailPage({
-                                          params,
-                                        }: {
-  params: { spaceId: string };
-}) {
-  const {spaceId} = params;
+export default function SpaceDetailPage() {
+  const params = useParams();
+  const { spaceId } = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry, loadActions, loadLogEntries, loadWasteEntries } = useSpaceContext();
+  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
   const [newActionPoints, setNewActionPoints] = useState(1);
@@ -104,6 +113,9 @@ export default function SpaceDetailPage({
   const [totalWastePoints, setTotalWastePoints] = useState(0);
   const [totalClockedInTime, setTotalClockedInTime] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [newCommentImage, setNewCommentImage] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -118,16 +130,38 @@ export default function SpaceDetailPage({
   }, [spaceId]);
 
   useEffect(() => {
-    loadActions(spaceId);
-    loadLogEntries(spaceId);
-    loadWasteEntries(spaceId);
+    loadActions();
+    loadLogEntries();
+    loadWasteEntries();
     const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
     if (storedTotalClockedInTime) {
       setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
     }
-  }, [spaceId, loadActions, loadLogEntries, loadWasteEntries]);
+  }, [spaceId]);
 
-    useEffect(() => {
+  const loadActions = useCallback(() => {
+    const storedActions = localStorage.getItem(`actions-${spaceId}`);
+    if (storedActions) {
+      setActions(JSON.parse(storedActions));
+    }
+  }, [spaceId]);
+
+  const loadLogEntries = useCallback(() => {
+    const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
+    if (storedLogEntries) {
+      setLogEntries(JSON.parse(storedLogEntries));
+    }
+  }, [spaceId]);
+
+  const loadWasteEntries = useCallback(() => {
+    const storedWasteEntries = localStorage.getItem(`wasteEntries-${spaceId}`);
+    if (storedWasteEntries) {
+      setWasteEntries(JSON.parse(storedWasteEntries));
+    }
+  }, [spaceId]);
+
+
+  useEffect(() => {
         recalculateTotalPoints();
     }, [actions, logEntries, spaceId]);
 
@@ -194,6 +228,7 @@ export default function SpaceDetailPage({
 
     addLogEntry(logEntry);
     recalculateTotalPoints();
+    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
 
     toast({
       title: 'Action Logged!',
@@ -216,8 +251,9 @@ export default function SpaceDetailPage({
         points: Number(newActionPoints),
       };
 
-      await addAction(newAction);
-      loadActions(spaceId);
+      const updatedActions = [...actions, newAction];
+      setActions(updatedActions);
+      localStorage.setItem(`actions-${spaceId}`, JSON.stringify(updatedActions));
 
       setNewActionName('');
       setNewActionDescription('');
@@ -253,6 +289,7 @@ export default function SpaceDetailPage({
     };
 
     addLogEntry(logEntry);
+    localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
 
     toast({
       title: 'Clocked In!',
@@ -285,6 +322,7 @@ export default function SpaceDetailPage({
         spaceId: spaceId,
       };
       addLogEntry(logEntry);
+      localStorage.setItem(`logEntries-${spaceId}`, JSON.stringify(logEntries));
     }
     setStartTime(null);
 
@@ -338,6 +376,7 @@ export default function SpaceDetailPage({
     setTotalWastePoints(prevPoints => prevPoints + newWastePoints);
     setSelectedWasteCategories([]);
     setIsAddWasteModalOpen(false);
+    localStorage.setItem(`wasteEntries-${spaceId}`, JSON.stringify(wasteEntries));
 
     toast({
       title: 'Waste Added!',
@@ -364,6 +403,31 @@ export default function SpaceDetailPage({
     const seconds = timeInSeconds % 60;
 
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const handleAddComment = () => {
+    if (newCommentText.trim() !== '') {
+      const newComment: Comment = {
+        id: uuidv4(),
+        text: newCommentText,
+        imageUrl: newCommentImage,
+        timestamp: new Date(),
+      };
+      setComments([...comments, newComment]);
+      setNewCommentText('');
+      setNewCommentImage(null);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewCommentImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
 
@@ -500,6 +564,51 @@ export default function SpaceDetailPage({
         </ScrollArea>
       </div>
 
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-2xl font-bold mb-4">Comments</h2>
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <Card key={comment.id} className="card-shadow">
+              <CardContent>
+                {comment.imageUrl && (
+                  <img src={comment.imageUrl} alt="Comment Image" className="rounded-md mb-2 max-h-40 object-cover" />
+                )}
+                <CardDescription className="text-foreground">{comment.text}</CardDescription>
+                <p className="text-sm text-muted-foreground">
+                  {format(comment.timestamp, 'MMM dd, yyyy hh:mm a')}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="mt-4">
+          <Label htmlFor="comment" className="block text-sm font-medium text-foreground">Add a Comment</Label>
+          <Textarea
+            id="comment"
+            className="w-full p-2 border rounded text-foreground"
+            placeholder="Enter your comment"
+            value={newCommentText}
+            onChange={(e) => setNewCommentText(e.target.value)}
+          />
+        </div>
+        <div className="mt-2">
+          <Label htmlFor="image" className="block text-sm font-medium text-foreground">Add an Image (Optional)</Label>
+          <Input
+            type="file"
+            id="image"
+            accept="image/*"
+            className="w-full p-2 border rounded"
+            onChange={handleImageUpload}
+          />
+          {newCommentImage && (
+            <img src={newCommentImage} alt="New Comment Image" className="mt-2 rounded max-h-40 object-cover" />
+          )}
+        </div>
+        <Button onClick={handleAddComment} className="mt-4 bg-primary text-primary-foreground rounded p-3 font-bold">
+          Add Comment
+        </Button>
+      </div>
+
       <Button className="mt-8 w-full max-w-4xl" size="lg" variant="ghost" onClick={handleBack}>
         Back to Home
       </Button>
@@ -594,3 +703,4 @@ export default function SpaceDetailPage({
     </div>
   );
 }
+

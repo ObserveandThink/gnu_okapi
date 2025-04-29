@@ -43,7 +43,18 @@ export default function NewSpacePage() {
 
     try {
       const id = uuidv4();
-      const newSpace = { id, name, description, goal, beforeImage, afterImage };
+      const now = new Date();
+      const newSpace = { 
+        id, 
+        name, 
+        description, 
+        goal, 
+        beforeImage, 
+        afterImage,
+        dateCreated: now,
+        dateModified: now,
+        totalClockedInTime: 0,
+      };
 
       const storedSpaces = localStorage.getItem("spaces");
       const existingSpaces = storedSpaces ? JSON.parse(storedSpaces) : [];
