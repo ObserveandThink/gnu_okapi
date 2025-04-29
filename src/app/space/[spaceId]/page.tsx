@@ -114,7 +114,7 @@ export default function SpaceDetailPage({
   const [newCommentImage, setNewCommentImage] = useState<string | null>(null);
   const [isLogDetailsOpen, setIsLogDetailsOpen] = useState(false);
   const [isWasteDetailsOpen, setIsWasteDetailsOpen] = useState(false);
-    const [isCommentDetailsOpen, setIsCommentDetailsOpen] = useState(false);
+  const [isCommentDetailsOpen, setIsCommentDetailsOpen] = useState(false);
 
 
   useEffect(() => {
@@ -409,19 +409,19 @@ export default function SpaceDetailPage({
 
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
-       {/* Space Details */}
-       <Card className="w-full max-w-4xl mb-4 card-shadow">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">{space.name}</CardTitle>
+    <div className="flex flex-col items-center justify-start min-h-screen py-4 bg-background p-2">
+      {/* Space Details */}
+      <Card className="w-full max-w-4xl mb-2 card-shadow">
+        <CardHeader className="p-3">
+          <CardTitle className="text-xl font-bold text-center">{space.name}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3">
           <div>
             {space.beforeImage && (
-              <img src={space.beforeImage} alt="Before" className="rounded-md mb-2 max-h-40 object-cover"/>
+              <img src={space.beforeImage} alt="Before" className="rounded-md mb-1 max-h-32 object-cover"/>
             )}
             {space.afterImage && (
-              <img src={space.afterImage} alt="After" className="rounded-md mb-2 max-h-40 object-cover"/>
+              <img src={space.afterImage} alt="After" className="rounded-md mb-1 max-h-32 object-cover"/>
             )}
           </div>
           <div>
@@ -432,9 +432,9 @@ export default function SpaceDetailPage({
       </Card>
 
       {/* Dashboard */}
-      <div className="w-full max-w-4xl mb-4">
+      <div className="w-full max-w-4xl mb-2">
         <Card className="card-shadow">
-          <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+          <CardContent className="p-1 grid grid-cols-2 sm:grid-cols-4 gap-1 text-xs">
             <div>Status: {!isClockedIn ? <Button variant="outline" size="sm" onClick={handleClockIn}>Clock In</Button> : <Button variant="outline" size="sm" onClick={handleClockOut}>Clock Out</Button>}</div>
             <div>Work Time: {formatElapsedTime(elapsedTime)}</div>
             <div>Total Time: {totalClockedInTime} minutes</div>
@@ -446,9 +446,9 @@ export default function SpaceDetailPage({
       </div>
 
       {/* Actions */}
-      <div className="mt-4 w-full max-w-4xl">
-        <h2 className="text-xl font-bold mb-2">Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="mt-2 w-full max-w-4xl">
+        <h2 className="text-lg font-bold mb-1">Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
           {actions.map((action) => (
             <div key={action.id} className="flex space-x-1">
               <Button
@@ -479,16 +479,16 @@ export default function SpaceDetailPage({
           ))}
         </div>
 
-        <Button className="mt-2 w-full" size="sm" onClick={handleCreateAction}>
+        <Button className="mt-1 w-full" size="sm" onClick={handleCreateAction}>
           Create New Action
         </Button>
       </div>
 
       {/* Waste Tracking */}
-      <div className="mt-4 w-full max-w-4xl">
-        <h2 className="text-xl font-bold mb-2">Waste Tracking</h2>
+      <div className="mt-2 w-full max-w-4xl">
+        <h2 className="text-lg font-bold mb-1">Waste Tracking</h2>
         <Button size="sm" onClick={handleAddWasteClick}>Add Waste</Button>
-        <Progress value={0} className="h-2"/>
+        <Progress value={0} className="h-1"/>
                 {wasteEntries.length > 0 ? (
                     <>
                         <div>
@@ -505,8 +505,8 @@ export default function SpaceDetailPage({
       </div>
 
       {/* Log */}
-      <div className="mt-4 w-full max-w-4xl">
-        <h2 className="text-xl font-bold mb-2">Log</h2>
+      <div className="mt-2 w-full max-w-4xl">
+        <h2 className="text-lg font-bold mb-1">Log</h2>
                 {logEntries.length > 0 ? (
                     <>
                         <div>
@@ -523,8 +523,8 @@ export default function SpaceDetailPage({
       </div>
 
       {/* Comments */}
-      <div className="mt-4 w-full max-w-4xl">
-        <h2 className="text-xl font-bold mb-2">Comments</h2>
+      <div className="mt-2 w-full max-w-4xl">
+        <h2 className="text-lg font-bold mb-1">Comments</h2>
                 {comments.length > 0 ? (
                     <>
                         <div>
@@ -537,36 +537,36 @@ export default function SpaceDetailPage({
                 ) : (
                     <div>No comments yet.</div>
                 )}
-        <div className="mt-2">
+        <div className="mt-1">
           <Label htmlFor="comment" className="block text-sm font-medium text-foreground">Add a Comment</Label>
           <Textarea
             id="comment"
-            className="w-full p-2 border rounded text-foreground text-sm"
+            className="w-full p-1 border rounded text-foreground text-sm"
             placeholder="Enter your comment"
             value={newCommentText}
             onChange={(e) => setNewCommentText(e.target.value)}
           />
         </div>
-        <div className="mt-2">
+        <div className="mt-1">
           <Label htmlFor="image" className="block text-sm font-medium text-foreground">Add an Image (Optional)</Label>
           <Input
             type="file"
             id="image"
             accept="image/*"
-            className="w-full p-2 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm"
             onChange={handleImageUpload}
           />
           {newCommentImage && (
-            <img src={newCommentImage} alt="New Comment Image" className="mt-2 rounded max-h-40 object-cover" />
+            <img src={newCommentImage} alt="New Comment Image" className="mt-1 rounded max-h-40 object-cover" />
           )}
         </div>
-        <Button onClick={handleAddComment} className="mt-2 bg-primary text-primary-foreground rounded p-3 font-bold text-sm">
+        <Button onClick={handleAddComment} className="mt-1 bg-primary text-primary-foreground rounded p-1 font-bold text-sm">
           Add Comment
         </Button>
       </div>
 
       {/* Back Button */}
-      <Button className="mt-4 w-full max-w-4xl" size="sm" variant="ghost" onClick={handleBack}>
+      <Button className="mt-2 w-full max-w-4xl" size="sm" variant="ghost" onClick={handleBack}>
         Back to Home
       </Button>
 
@@ -579,8 +579,8 @@ export default function SpaceDetailPage({
               Add a new action to this space.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 py-2">
-            <div className="grid grid-cols-4 items-center gap-2">
+          <div className="grid gap-1 py-1">
+            <div className="grid grid-cols-4 items-center gap-1">
               <Label htmlFor="name" className="text-right text-sm">
                 Name
               </Label>
@@ -592,7 +592,7 @@ export default function SpaceDetailPage({
                 className="col-span-3 text-sm"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-2">
+            <div className="grid grid-cols-4 items-center gap-1">
               <Label htmlFor="description" className="text-right text-sm">
                 Description
               </Label>
@@ -603,7 +603,7 @@ export default function SpaceDetailPage({
                 className="col-span-3 text-sm"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-2">
+            <div className="grid grid-cols-4 items-center gap-1">
               <Label htmlFor="points" className="text-right text-sm">
                 Points
               </Label>
@@ -634,7 +634,7 @@ export default function SpaceDetailPage({
               Select waste categories to add to this space.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 py-2">
+          <div className="grid gap-1 py-1">
             <div className="flex flex-wrap gap-1">
               {timwoodsCategories.map((category) => (
                 <Button
@@ -647,7 +647,7 @@ export default function SpaceDetailPage({
                 </Button>
               ))}
             </div>
-            <Progress value={0} className="h-2"/>
+            <Progress value={0} className="h-1"/>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="secondary" size="sm" onClick={handleCancelWaste}>
