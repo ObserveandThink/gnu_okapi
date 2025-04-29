@@ -171,7 +171,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
         console.error("Failed to load actions:", error);
       }
     }
-  }, [db]);
+  }, [db, setActions]);
 
   const loadLogEntries = useCallback(async () => {
     if (db) {

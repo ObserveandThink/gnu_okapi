@@ -1,4 +1,3 @@
-
 'use client';
 
 import {useRouter} from 'next/navigation';
@@ -98,7 +97,7 @@ export default function SpaceDetailPage() {
   const { spaceId } = params;
   const router = useRouter();
   const [space, setSpace] = useState<Space | null>(null);
-  const { actions, logEntries, wasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
+  const { actions, setActions, logEntries, setLogEntries, wasteEntries, setWasteEntries, addAction, addLogEntry, addWasteEntry } = useSpaceContext();
   const [newActionName, setNewActionName] = useState('');
   const [newActionDescription, setNewActionDescription] = useState('');
   const [newActionPoints, setNewActionPoints] = useState(1);
@@ -129,37 +128,37 @@ export default function SpaceDetailPage() {
     }
   }, [spaceId]);
 
-  useEffect(() => {
-    loadActions();
-    loadLogEntries();
-    loadWasteEntries();
-    const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
-    if (storedTotalClockedInTime) {
-      setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
-    }
-  }, [spaceId]);
-
   const loadActions = useCallback(() => {
     const storedActions = localStorage.getItem(`actions-${spaceId}`);
     if (storedActions) {
       setActions(JSON.parse(storedActions));
     }
-  }, [spaceId]);
+  }, [spaceId, setActions]);
 
   const loadLogEntries = useCallback(() => {
     const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
     if (storedLogEntries) {
       setLogEntries(JSON.parse(storedLogEntries));
     }
-  }, [spaceId]);
+  }, [spaceId, setLogEntries]);
 
   const loadWasteEntries = useCallback(() => {
     const storedWasteEntries = localStorage.getItem(`wasteEntries-${spaceId}`);
     if (storedWasteEntries) {
       setWasteEntries(JSON.parse(storedWasteEntries));
     }
-  }, [spaceId]);
+  }, [spaceId, setWasteEntries]);
 
+
+  useEffect(() => {
+        loadActions();
+        loadLogEntries();
+        loadWasteEntries();
+        const storedTotalClockedInTime = localStorage.getItem(`totalClockedInTime-${spaceId}`);
+        if (storedTotalClockedInTime) {
+          setTotalClockedInTime(JSON.parse(storedTotalClockedInTime));
+        }
+    }, [spaceId, loadActions, loadLogEntries, loadWasteEntries]);
 
   useEffect(() => {
         recalculateTotalPoints();
@@ -251,9 +250,7 @@ export default function SpaceDetailPage() {
         points: Number(newActionPoints),
       };
 
-      const updatedActions = [...actions, newAction];
-      setActions(updatedActions);
-      localStorage.setItem(`actions-${spaceId}`, JSON.stringify(updatedActions));
+      addAction(newAction);
 
       setNewActionName('');
       setNewActionDescription('');
