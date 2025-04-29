@@ -113,6 +113,9 @@ export default function SpaceDetailPage({
   const [comments, setComments] = useState<Comment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [newCommentImage, setNewCommentImage] = useState<string | null>(null);
+  const [isLogDetailsOpen, setIsLogDetailsOpen] = useState(false);
+  const [isWasteDetailsOpen, setIsWasteDetailsOpen] = useState(false);
+    const [isCommentDetailsOpen, setIsCommentDetailsOpen] = useState(false);
 
 
   useEffect(() => {
@@ -496,61 +499,52 @@ export default function SpaceDetailPage({
         <h2 className="text-3xl font-bold mb-4">Waste Tracking</h2>
         <Button onClick={handleAddWasteClick}>Add Waste</Button>
         <Progress value={0} className="h-4"/>
-        <ScrollArea className="max-h-40">
-          {wasteEntries.map((wasteEntry) => (
-            <div key={wasteEntry.id} className="mb-2">
-              {wasteEntry.type} - Points: {wasteEntry.points}
-            </div>
-          ))}
-        </ScrollArea>
+                {wasteEntries.length > 0 ? (
+                    <>
+                        <div>
+                            Latest Waste Entry: {wasteEntries[0].type} - Points: {wasteEntries[0].points}
+                        </div>
+                        <Button variant="link" onClick={() => setIsWasteDetailsOpen(true)}>
+                            See All Waste Entries
+                        </Button>
+                    </>
+                ) : (
+                    <div>No waste entries yet.</div>
+                )}
         <p>Total Waste Points: {totalWastePoints}</p>
       </div>
 
       <div className="mt-8 w-full max-w-4xl">
         <h2 className="text-2xl font-bold mb-4">Log</h2>
-        <ScrollArea className="max-h-40">
-          {logEntries.map((logEntry) => {
-            if (logEntry.type === 'action') {
-              return (
-                <div key={logEntry.id} className="mb-2">
-                  {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
-                </div>
-              );
-            } else if (logEntry.type === 'clockIn') {
-              return (
-                <div key={logEntry.id} className="mb-2">
-                  Clocked in at {formatTime(logEntry.timestamp)}
-                </div>
-              );
-            } else if (logEntry.type === 'clockOut' && logEntry.clockInTime && logEntry.clockOutTime && logEntry.minutesClockedIn !== undefined) {
-              return (
-                <div key={logEntry.id} className="mb-2">
-                  Clocked out at {formatTime(logEntry.timestamp)}. Total time clocked in: {logEntry.minutesClockedIn} minutes.
-                </div>
-              );
-            }
-            return null;
-          })}
-        </ScrollArea>
+                {logEntries.length > 0 ? (
+                    <>
+                        <div>
+                            Latest Log Entry: {logEntries[0].actionName} at {formatTime(logEntries[0].timestamp)}
+                            (Points: {logEntries[0].points})
+                        </div>
+                        <Button variant="link" onClick={() => setIsLogDetailsOpen(true)}>
+                            See All Log Entries
+                        </Button>
+                    </>
+                ) : (
+                    <div>No log entries yet.</div>
+                )}
       </div>
 
       <div className="mt-8 w-full max-w-4xl">
         <h2 className="text-2xl font-bold mb-4">Comments</h2>
-        <div className="space-y-4">
-          {comments.map((comment) => (
-            <Card key={comment.id} className="card-shadow">
-              <CardContent>
-                {comment.imageUrl && (
-                  <img src={comment.imageUrl} alt="Comment Image" className="rounded-md mb-2 max-h-40 object-cover" />
+                {comments.length > 0 ? (
+                    <>
+                        <div>
+                            Latest Comment: {comments[0].text.substring(0, 50)}...
+                        </div>
+                        <Button variant="link" onClick={() => setIsCommentDetailsOpen(true)}>
+                            See All Comments
+                        </Button>
+                    </>
+                ) : (
+                    <div>No comments yet.</div>
                 )}
-                <CardDescription className="text-foreground">{comment.text}</CardDescription>
-                <p className="text-sm text-muted-foreground">
-                  {format(comment.timestamp, 'MMM dd, yyyy hh:mm a')}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
         <div className="mt-4">
           <Label htmlFor="comment" className="block text-sm font-medium text-foreground">Add a Comment</Label>
           <Textarea
@@ -670,6 +664,82 @@ export default function SpaceDetailPage({
           </div>
         </DialogContent>
       </Dialog>
+            <Dialog open={isLogDetailsOpen} onOpenChange={setIsLogDetailsOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Log Details</DialogTitle>
+                        <DialogDescription>
+                            All log entries for this space.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="max-h-80">
+                        {logEntries.map((logEntry) => {
+                            if (logEntry.type === 'action') {
+                                return (
+                                    <div key={logEntry.id} className="mb-2">
+                                        {logEntry.actionName} completed at {formatTime(logEntry.timestamp)} (+{logEntry.points} points)
+                                    </div>
+                                );
+                            } else if (logEntry.type === 'clockIn') {
+                                return (
+                                    <div key={logEntry.id} className="mb-2">
+                                        Clocked in at {formatTime(logEntry.timestamp)}
+                                    </div>
+                                );
+                            } else if (logEntry.type === 'clockOut' && logEntry.clockInTime && logEntry.clockOutTime && logEntry.minutesClockedIn !== undefined) {
+                                return (
+                                    <div key={logEntry.id} className="mb-2">
+                                        Clocked out at {formatTime(logEntry.timestamp)}. Total time clocked in: {logEntry.minutesClockedIn} minutes.
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })}
+                    </ScrollArea>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={isWasteDetailsOpen} onOpenChange={setIsWasteDetailsOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Waste Details</DialogTitle>
+                        <DialogDescription>
+                            All waste entries for this space.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="max-h-80">
+                        {wasteEntries.map((wasteEntry) => (
+                            <div key={wasteEntry.id} className="mb-2">
+                                {wasteEntry.type} - Points: {wasteEntry.points}
+                            </div>
+                        ))}
+                    </ScrollArea>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={isCommentDetailsOpen} onOpenChange={setIsCommentDetailsOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Comment Details</DialogTitle>
+                        <DialogDescription>
+                            All comments for this space.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="max-h-80">
+                        {comments.map((comment) => (
+                            <Card key={comment.id} className="card-shadow">
+                                <CardContent>
+                                    {comment.imageUrl && (
+                                        <img src={comment.imageUrl} alt="Comment Image" className="rounded-md mb-2 max-h-40 object-cover"/>
+                                    )}
+                                    <CardDescription className="text-foreground">{comment.text}</CardDescription>
+                                    <p className="text-sm text-muted-foreground">
+                                        {format(comment.timestamp, 'MMM dd, yyyy hh:mm a')}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </ScrollArea>
+                </DialogContent>
+            </Dialog>
     </div>
   );
 }
