@@ -375,9 +375,9 @@ export default function SpaceDetailPage({
     }
 
     const storedLogEntries = localStorage.getItem(`logEntries-${spaceId}`);
-        if (storedLogEntries) {
-            setLogEntries(JSON.parse(storedLogEntries));
-        }
+    if (storedLogEntries) {
+      setLogEntries(JSON.parse(storedLogEntries));
+    }
   }, [spaceId]);
 
 
@@ -389,7 +389,7 @@ export default function SpaceDetailPage({
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-      <table className="w-full">
+        <table className="w-full">
           <thead>
             <tr>
               <th className="text-left">Status</th>
