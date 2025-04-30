@@ -5,7 +5,6 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid'; // Keep for client-side generation if needed (e.g., comment temp ID)
 import { useSpaceContext } from '@/contexts/SpaceContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { handleImageUploadUtil } from '@/utils/imageUtils'; // Import utility
+import { formatTime, formatElapsedTime } from '@/utils/dateUtils'; // Import date utilities
+
 
 // Import Domain Models (optional, for type clarity)
 import type { Action } from '@/core/domain/Action';
@@ -112,6 +113,7 @@ export default function SpaceDetailPage() {
         setCurrentSessionElapsedTime(0);
         setTimerIntervalId(null);
      };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [spaceId, loadSpaceDetails, clearCurrentSpace]); // Dependencies: spaceId and context functions
 
 
@@ -148,25 +150,27 @@ export default function SpaceDetailPage() {
     return wasteEntries.reduce((sum, entry) => sum + entry.points, 0);
   }, [wasteEntries]);
 
-  const apPerHour = useMemo(() => {
-     // Calculate based on TOTAL clocked time and TOTAL points
-    if (currentSpace && currentSpace.totalClockedInTime > 0) {
-        const totalHours = currentSpace.totalClockedInTime / 60;
-        return totalPoints / totalHours;
+  // Calculate AP per hour based on the current clock-in session
+  const apPerCurrentSessionHour = useMemo(() => {
+    if (!isClockedIn || !clockInStartTime || currentSessionElapsedTime <= 0) {
+        return 0; // Not clocked in, no start time, or no time elapsed
     }
-    // Or base it on current session? Decide the desired logic.
-    // Current session AP/H:
-     if (currentSessionElapsedTime > 0) {
-         const currentHours = currentSessionElapsedTime / 3600;
-         const currentSessionPoints = logEntries
-            .filter(entry => entry.timestamp >= (clockInStartTime ?? new Date(0))) // Filter entries from current session
-            .reduce((sum, entry) => sum + entry.points, 0);
-        // return currentSessionPoints / currentHours; // This might be more volatile
-        return totalPoints / ( (currentSpace?.totalClockedInTime || 0)/60 + currentHours); // Combine total time and current session
-     }
 
-    return 0;
-  }, [totalPoints, currentSpace, currentSessionElapsedTime, logEntries, clockInStartTime]);
+    // Filter log entries that occurred *during* the current session and awarded points
+    const sessionPointEntries = logEntries.filter(
+        entry => entry.timestamp >= clockInStartTime && entry.points > 0
+    );
+
+    const sessionPoints = sessionPointEntries.reduce((sum, entry) => sum + entry.points, 0);
+    const sessionHours = currentSessionElapsedTime / 3600; // Convert session seconds to hours
+
+    if (sessionHours <= 0) {
+        return 0; // Avoid division by zero if session is extremely short
+    }
+
+    return sessionPoints / sessionHours; // Calculate points per hour for the current session
+
+ }, [logEntries, isClockedIn, clockInStartTime, currentSessionElapsedTime]);
 
 
    // --- Event Handlers ---
@@ -185,7 +189,7 @@ export default function SpaceDetailPage() {
 
     await addLogEntry({
       spaceId: currentSpace.id,
-      timestamp: now,
+      // timestamp will be set by service
       actionName: 'Clock In',
       points: 0,
       type: 'clockIn',
@@ -212,7 +216,7 @@ export default function SpaceDetailPage() {
     // Add log entry for clocking out
      await addLogEntry({
       spaceId: currentSpace.id,
-      timestamp: now,
+      // timestamp will be set by service
       actionName: 'Clock Out',
       points: 0,
       type: 'clockOut',
@@ -246,7 +250,7 @@ export default function SpaceDetailPage() {
     const pointsEarned = action.points * multiplier;
     await addLogEntry({
         spaceId: currentSpace.id,
-        timestamp: new Date(),
+        // timestamp will be set by service
         actionName: `${action.name} (x${multiplier})`, // Clarify multiplier
         points: pointsEarned,
         type: 'action',
@@ -409,27 +413,8 @@ export default function SpaceDetailPage() {
 
 
    // --- Helper Functions ---
-  const formatTime = (date: Date | undefined): string => {
-    if (!date) return 'N/A';
-    try {
-        // Check if it's a valid Date object
-        if (isNaN(date.getTime())) {
-             console.error("Invalid Date object passed to formatTime:", date);
-             return 'Invalid Date';
-        }
-        return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-    } catch (e) {
-        console.error("Error formatting time:", e);
-        return 'Invalid Date';
-    }
-  };
+  // Removed formatTime and formatElapsedTime as they are imported from dateUtils now
 
-   const formatElapsedTime = (timeInSeconds: number): string => {
-    const hours = Math.floor(timeInSeconds / 3600);
-    const minutes = Math.floor((timeInSeconds % 3600) / 60);
-    const seconds = timeInSeconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
 
   // --- Render Logic ---
 
@@ -504,7 +489,7 @@ export default function SpaceDetailPage() {
              <div className="text-center"><span className="font-semibold">Total:</span><br/>{currentSpace.totalClockedInTime} min</div>
              {/* Metrics */}
              <div className="text-center"><span className="font-semibold">AP:</span><br/>{totalPoints.toFixed(0)}</div>
-             <div className="text-center"><span className="font-semibold">AP/H:</span><br/>{apPerHour.toFixed(1)}</div>
+             <div className="text-center"><span className="font-semibold">AP/H:</span><br/>{apPerCurrentSessionHour.toFixed(1)}</div> {/* Use the new state */}
              <div className="text-center"><span className="font-semibold">Waste:</span><br/>{totalWastePoints}</div>
           </CardContent>
       </Card>
@@ -528,6 +513,7 @@ export default function SpaceDetailPage() {
                          {/* Add other multipliers back if needed, keep them small */}
                          <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 2)} disabled={!isClockedIn} className="text-xs w-8">x2</Button>
                          <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 5)} disabled={!isClockedIn} className="text-xs w-8">x5</Button>
+                         <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 10)} disabled={!isClockedIn} className="text-xs w-8">x10</Button> {/* Added x10 */}
                      </div>
                 ))}
                  {/* Multi-Step Actions */}
@@ -892,3 +878,5 @@ export default function SpaceDetailPage() {
     </div>
   );
 }
+
+    
