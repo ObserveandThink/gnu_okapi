@@ -1,17 +1,23 @@
+/**
+ * @fileOverview Page component for creating a new Space.
+ */
 "use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { toast } from "@/hooks/use-toast";
+import type React from 'react';
+import { useSpaceContext } from "@/contexts/SpaceContext"; // Use the refactored context
+import { toast } from "@/hooks/use-toast"; // Keep using existing toast hook
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { handleImageUploadUtil } from '@/utils/imageUtils'; // Import utility
 
 export default function NewSpacePage() {
   const router = useRouter();
+  const { createSpace, isLoading, error } = useSpaceContext(); // Get createSpace function from context
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState("");
@@ -19,60 +25,41 @@ export default function NewSpacePage() {
   const [afterImage, setAfterImage] = useState<string | null>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>, setImage: (value: string | null) => void) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    handleImageUploadUtil(event, setImage); // Use the utility function
   };
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    if (!name) {
+    if (!name.trim()) {
       toast({
-        title: "Error",
+        title: "Validation Error",
         description: "Space name is required.",
         variant: "destructive",
       });
       return;
     }
 
-    try {
-      const id = uuidv4();
-      const now = new Date();
-      const newSpace = { 
-        id, 
-        name, 
-        description, 
-        goal, 
-        beforeImage, 
-        afterImage,
-        dateCreated: now,
-        dateModified: now,
-        totalClockedInTime: 0,
-      };
+    const spaceData = {
+      name: name.trim(),
+      description: description.trim(),
+      goal: goal.trim(),
+      beforeImage,
+      afterImage,
+    };
 
-      const storedSpaces = localStorage.getItem("spaces");
-      const existingSpaces = storedSpaces ? JSON.parse(storedSpaces) : [];
+    const createdSpace = await createSpace(spaceData); // Use context function
 
-      const updatedSpaces = [...existingSpaces, newSpace];
-      localStorage.setItem("spaces", JSON.stringify(updatedSpaces));
-
-      toast({
-        title: "Space created!",
-        description: `Space "${name}" has been successfully created.`,
-      });
-      router.push("/");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create space.",
-        variant: "destructive",
-      });
+    if (createdSpace) {
+        toast({
+            title: "Space created!",
+            description: `Space "${createdSpace.name}" has been successfully created.`,
+        });
+        router.push("/"); // Navigate back to home page after successful creation
+    } else {
+        // Error handling is done within the context hook using toast
+        // You could add specific UI feedback here if needed
+        console.error("Failed to create space (handled by context).");
     }
   }
 
@@ -84,70 +71,85 @@ export default function NewSpacePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
+            {/* Space Name */}
             <div>
-              <Label htmlFor="name" className="block text-sm font-medium text-foreground">Space Name</Label>
+              <Label htmlFor="name">Space Name *</Label>
               <Input
                 type="text"
                 id="name"
-                className="w-full p-2 border rounded text-foreground"
                 placeholder="Enter space name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                className="text-foreground"
+                aria-required="true"
               />
             </div>
+
+            {/* Description */}
             <div>
-              <Label htmlFor="description" className="block text-sm font-medium text-foreground">Description</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                className="w-full p-2 border rounded text-foreground"
-                placeholder="Enter space description"
+                placeholder="Enter space description (optional)"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                className="text-foreground"
               />
             </div>
+
+            {/* Goal */}
             <div>
-              <Label htmlFor="goal" className="block text-sm font-medium text-foreground">Goal (Optional)</Label>
+              <Label htmlFor="goal">Goal</Label>
               <Input
                 type="text"
                 id="goal"
-                className="w-full p-2 border rounded text-foreground"
-                placeholder="Enter space goal"
+                placeholder="Enter space goal (optional)"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
+                className="text-foreground"
               />
             </div>
+
+            {/* Before Image */}
             <div>
-              <Label htmlFor="beforeImage" className="block text-sm font-medium text-foreground">Before Image (Optional)</Label>
+              <Label htmlFor="beforeImage">Before Image</Label>
               <Input
                 type="file"
                 id="beforeImage"
                 accept="image/*"
-                className="w-full p-2 border rounded"
-                type="file"
                 onChange={(e) => handleImageUpload(e, setBeforeImage)}
+                 className="text-foreground file:text-foreground"
               />
               {beforeImage && (
-                <img src={beforeImage} alt="Before" className="mt-2 rounded max-h-40 object-cover" />
+                <img src={beforeImage} alt="Before preview" className="mt-2 rounded max-h-40 object-cover" />
               )}
             </div>
+
+            {/* After Image */}
             <div>
-              <Label htmlFor="afterImage" className="block text-sm font-medium text-foreground">After Image (Optional)</Label>
+              <Label htmlFor="afterImage">After Image</Label>
               <Input
                 type="file"
                 id="afterImage"
                 accept="image/*"
-                className="w-full p-2 border rounded"
-                type="file"
                 onChange={(e) => handleImageUpload(e, setAfterImage)}
+                className="text-foreground file:text-foreground"
               />
               {afterImage && (
-                <img src={afterImage} alt="After" className="mt-2 rounded max-h-40 object-cover" />
+                <img src={afterImage} alt="After preview" className="mt-2 rounded max-h-40 object-cover" />
               )}
             </div>
-            <Button type="submit" className="w-full bg-primary text-primary-foreground rounded p-3 font-bold">
-              Create Space
+
+            {/* Submit Button */}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating..." : "Create Space"}
             </Button>
+
+             {/* Display Context Error */}
+             {error && (
+                <p className="text-sm text-destructive mt-2">{error}</p>
+             )}
           </form>
         </CardContent>
       </Card>

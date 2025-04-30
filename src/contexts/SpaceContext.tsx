@@ -1,3 +1,7 @@
+/**
+ * @fileOverview React Context provider for managing application state related to Spaces and their contents.
+ * Uses the service layer to interact with data persistence.
+ */
 'use client';
 
 import type React from 'react';
@@ -7,318 +11,99 @@ import {
   useState,
   useEffect,
   useContext,
+  useMemo,
 } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 
-// --- Interfaces ---
+// Import Domain Models
+import type { Space } from '@/core/domain/Space';
+import type { Action } from '@/core/domain/Action';
+import type { MultiStepAction, ActionStep } from '@/core/domain/MultiStepAction';
+import type { LogEntry } from '@/core/domain/LogEntry';
+import type { WasteEntry } from '@/core/domain/WasteEntry';
+import type { Comment } from '@/core/domain/Comment';
 
-interface Space {
-  id: string;
-  name: string;
-  description?: string;
-  goal?: string;
-  beforeImage?: string | null;
-  afterImage?: string | null;
-  dateCreated: Date;
-  dateModified: Date;
-  totalClockedInTime: number; // in minutes
-}
+// Import Service Layer
+import { SpaceService } from '@/core/services/SpaceService';
+import { ActionService } from '@/core/services/ActionService';
+import { MultiStepActionService } from '@/core/services/MultiStepActionService';
+import { LogEntryService } from '@/core/services/LogEntryService';
+import { WasteEntryService } from '@/core/services/WasteEntryService';
+import { CommentService } from '@/core/services/CommentService';
 
-interface Action {
-  id: string;
-  name: string;
-  spaceId: string;
-  description?: string;
-  points: number;
-}
+// Import Repository Factory (using the singleton instance)
+import { repositoryFactory } from '@/infrastructure/persistence/IndexedDBRepositoryFactory';
 
-interface MultiStepAction {
-  id: string;
-  name: string;
-  spaceId: string;
-  description?: string;
-  pointsPerStep: number;
-  steps: { id: string; name: string; completed: boolean }[];
-  currentStepIndex: number;
-}
-
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  actionName: string;
-  points: number;
-  type: 'action' | 'multiStepAction' | 'clockIn' | 'clockOut';
-  multiStepActionId?: string;
-  stepIndex?: number;
-  clockInTime?: Date;
-  clockOutTime?: Date;
-  minutesClockedIn?: number;
-  spaceId: string;
-}
-
-interface WasteEntry {
-  id: string;
-  timestamp: Date;
-  type: string; // TIMWOODS category name
-  points: number;
-  spaceId: string;
-}
-
-interface Comment {
-  id: string;
-  text: string;
-  imageUrl?: string | null;
-  timestamp: Date;
-  spaceId: string;
-}
+// --- Context Props Interface ---
 
 interface SpaceContextProps {
+  // State
   spaces: Space[];
+  currentSpace: Space | null; // Currently viewed space details
   actions: Action[];
   multiStepActions: MultiStepAction[];
   logEntries: LogEntry[];
   wasteEntries: WasteEntry[];
   comments: Comment[];
-  db: IDBDatabase | null;
-  setActions: React.Dispatch<React.SetStateAction<Action[]>>;
-  setMultiStepActions: React.Dispatch<React.SetStateAction<MultiStepAction[]>>;
-  setLogEntries: React.Dispatch<React.SetStateAction<LogEntry[]>>;
-  setWasteEntries: React.Dispatch<React.SetStateAction<WasteEntry[]>>;
-  setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
-  addSpace: (space: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => Promise<Space | undefined>;
+  isLoading: boolean; // Flag for loading states
+  error: string | null; // To display errors
+
+  // Actions / Service Methods
+  loadSpaces: () => Promise<void>;
+  loadSpaceDetails: (spaceId: string) => Promise<void>; // Loads details for a specific space
+  clearCurrentSpace: () => void; // Clears the detailed view state
+  createSpace: (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => Promise<Space | undefined>;
   updateSpace: (space: Space) => Promise<void>;
   deleteSpace: (spaceId: string) => Promise<void>;
-  addAction: (action: Omit<Action, 'id'>) => Promise<Action | undefined>;
-  addMultiStepAction: (action: Omit<MultiStepAction, 'id' | 'currentStepIndex'>) => Promise<MultiStepAction | undefined>;
-  updateMultiStepAction: (action: MultiStepAction) => Promise<void>;
-  addLogEntry: (logEntry: Omit<LogEntry, 'id'>) => Promise<LogEntry | undefined>;
-  addWasteEntry: (wasteEntry: Omit<WasteEntry, 'id'>) => Promise<WasteEntry | undefined>;
-  addComment: (comment: Omit<Comment, 'id'>) => Promise<Comment | undefined>;
-  loadDataForSpace: (spaceId: string) => Promise<void>;
-  loadSpaces: () => Promise<void>;
+  addClockedTime: (spaceId: string, additionalMinutes: number) => Promise<void>;
+
+  createAction: (actionData: Omit<Action, 'id'>) => Promise<Action | undefined>;
+  // updateAction: (action: Action) => Promise<void>; // Add if needed
+  // deleteAction: (id: string) => Promise<void>; // Add if needed
+
+  createMultiStepAction: (actionData: Omit<MultiStepAction, 'id' | 'currentStepIndex' | 'steps'> & { steps: Omit<ActionStep, 'id' | 'completed'>[] }) => Promise<MultiStepAction | undefined>;
+  completeMultiStepActionStep: (actionId: string) => Promise<MultiStepAction | undefined>;
+  // updateMultiStepAction: (action: MultiStepAction) => Promise<void>; // Add if needed
+  // deleteMultiStepAction: (id: string) => Promise<void>; // Add if needed
+
+  addLogEntry: (logEntryData: Omit<LogEntry, 'id' | 'timestamp'>) => Promise<LogEntry | undefined>;
+  // deleteLogEntry: (id: string) => Promise<void>; // Add if needed
+
+  addWasteEntries: (spaceId: string, categoryIds: string[]) => Promise<WasteEntry[]>;
+  // deleteWasteEntry: (id: string) => Promise<void>; // Add if needed
+
+  addComment: (commentData: Omit<Comment, 'id' | 'timestamp'>) => Promise<Comment | undefined>;
+  // deleteComment: (id: string) => Promise<void>; // Add if needed
 }
 
-const DB_NAME = 'okapiFlowDB';
-const DB_VERSION = 4; // Incremented version
-const STORES = {
-  SPACES: 'spaces',
-  ACTIONS: 'actions',
-  MULTI_STEP_ACTIONS: 'multiStepActions',
-  LOG_ENTRIES: 'logEntries',
-  WASTE_ENTRIES: 'wasteEntries',
-  COMMENTS: 'comments',
-};
+// --- Service Instantiation ---
+// Create instances of repositories using the factory
+const spaceRepository = repositoryFactory.createSpaceRepository();
+const actionRepository = repositoryFactory.createActionRepository();
+const multiStepActionRepository = repositoryFactory.createMultiStepActionRepository();
+const logEntryRepository = repositoryFactory.createLogEntryRepository();
+const wasteEntryRepository = repositoryFactory.createWasteEntryRepository();
+const commentRepository = repositoryFactory.createCommentRepository();
 
-// --- IndexedDB Helper Functions ---
-
-const openDB = (dbName: string, version: number) => {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(dbName, version);
-
-    request.onerror = () => {
-      console.error('IndexedDB error:', request.error);
-      reject(request.error);
-    };
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      const oldVersion = event.oldVersion;
-      console.log(`Upgrading IndexedDB from version ${oldVersion} to ${version}`);
-
-      // Create object stores if they don't exist
-      if (!db.objectStoreNames.contains(STORES.SPACES)) {
-        db.createObjectStore(STORES.SPACES, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(STORES.ACTIONS)) {
-        const actionsStore = db.createObjectStore(STORES.ACTIONS, { keyPath: 'id' });
-        // Create index for spaceId if it doesn't exist (needed in new version)
-        if (!actionsStore.indexNames.contains('spaceIdIndex')) {
-          actionsStore.createIndex('spaceIdIndex', 'spaceId', { unique: false });
-          console.log(`Created index 'spaceIdIndex' on store '${STORES.ACTIONS}'`);
-        }
-      }
-      if (!db.objectStoreNames.contains(STORES.MULTI_STEP_ACTIONS)) {
-        const multiStepActionsStore = db.createObjectStore(STORES.MULTI_STEP_ACTIONS, { keyPath: 'id' });
-         // Create index for spaceId if it doesn't exist (needed in new version)
-        if (!multiStepActionsStore.indexNames.contains('spaceIdIndex')) {
-            multiStepActionsStore.createIndex('spaceIdIndex', 'spaceId', { unique: false });
-            console.log(`Created index 'spaceIdIndex' on store '${STORES.MULTI_STEP_ACTIONS}'`);
-        }
-      }
-      if (!db.objectStoreNames.contains(STORES.LOG_ENTRIES)) {
-        const logEntriesStore = db.createObjectStore(STORES.LOG_ENTRIES, { keyPath: 'id' });
-         // Create index for spaceId if it doesn't exist (needed in new version)
-         if (!logEntriesStore.indexNames.contains('spaceIdIndex')) {
-            logEntriesStore.createIndex('spaceIdIndex', 'spaceId', { unique: false });
-            console.log(`Created index 'spaceIdIndex' on store '${STORES.LOG_ENTRIES}'`);
-        }
-      }
-      if (!db.objectStoreNames.contains(STORES.WASTE_ENTRIES)) {
-        const wasteEntriesStore = db.createObjectStore(STORES.WASTE_ENTRIES, { keyPath: 'id' });
-         // Create index for spaceId if it doesn't exist (needed in new version)
-        if (!wasteEntriesStore.indexNames.contains('spaceIdIndex')) {
-            wasteEntriesStore.createIndex('spaceIdIndex', 'spaceId', { unique: false });
-            console.log(`Created index 'spaceIdIndex' on store '${STORES.WASTE_ENTRIES}'`);
-        }
-      }
-      if (!db.objectStoreNames.contains(STORES.COMMENTS)) {
-         const commentsStore = db.createObjectStore(STORES.COMMENTS, { keyPath: 'id' });
-         // Create index for spaceId if it doesn't exist (needed in new version)
-         if (!commentsStore.indexNames.contains('spaceIdIndex')) {
-             commentsStore.createIndex('spaceIdIndex', 'spaceId', { unique: false });
-             console.log(`Created index 'spaceIdIndex' on store '${STORES.COMMENTS}'`);
-         }
-      }
-
-      // Handle specific version upgrades if necessary
-      if (oldVersion < 4) {
-         // Ensure indexes exist for stores created in previous versions
-         const storesWithIndex = [STORES.ACTIONS, STORES.MULTI_STEP_ACTIONS, STORES.LOG_ENTRIES, STORES.WASTE_ENTRIES, STORES.COMMENTS];
-         const transaction = (event.target as IDBOpenDBRequest).transaction;
-         if (transaction) {
-            storesWithIndex.forEach(storeName => {
-                if (db.objectStoreNames.contains(storeName)) {
-                    const store = transaction.objectStore(storeName);
-                    if (!store.indexNames.contains('spaceIdIndex')) {
-                        store.createIndex('spaceIdIndex', 'spaceId', { unique: false });
-                         console.log(`Created index 'spaceIdIndex' on store '${storeName}' during upgrade`);
-                    }
-                }
-            });
-         } else {
-            console.error("Transaction not available during upgrade needed");
-         }
-      }
-    };
-  });
-};
+// Create instances of services, injecting repositories
+// Instantiate dependent services first
+const actionService = new ActionService(actionRepository);
+const multiStepActionService = new MultiStepActionService(multiStepActionRepository);
+const logEntryService = new LogEntryService(logEntryRepository);
+const wasteEntryService = new WasteEntryService(wasteEntryRepository);
+const commentService = new CommentService(commentRepository);
+// Inject all services into SpaceService for cascading deletes
+const spaceService = new SpaceService(
+    spaceRepository,
+    actionService,
+    multiStepActionService,
+    logEntryService,
+    wasteEntryService,
+    commentService
+);
 
 
-const addItem = <T extends { id: string }>(db: IDBDatabase, storeName: string, item: T) => {
-  return new Promise<T>((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = store.put(item); // Use put to add or update
-
-    request.onerror = () => {
-        console.error(`Error adding/updating item in ${storeName}:`, request.error);
-        reject(request.error)
-    };
-    request.onsuccess = () => resolve(item); // Resolve with the added/updated item
-  });
-};
-
-const getItem = <T>(db: IDBDatabase, storeName: string, id: string) => {
-  return new Promise<T | undefined>((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = store.get(id);
-
-    request.onerror = () => {
-        console.error(`Error getting item ${id} from ${storeName}:`, request.error);
-        reject(request.error);
-    }
-    request.onsuccess = () => resolve(request.result as T | undefined);
-  });
-};
-
-
-const getAllItems = <T>(db: IDBDatabase, storeName: string) => {
-  return new Promise<T[]>((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = store.getAll();
-
-    request.onerror = () => {
-        console.error(`Error getting all items from ${storeName}:`, request.error);
-        reject(request.error);
-    }
-    request.onsuccess = () => resolve(request.result as T[]);
-  });
-};
-
-const getItemsBySpaceId = <T>(db: IDBDatabase, storeName: string, spaceId: string) => {
-  return new Promise<T[]>((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    try {
-      const index = store.index('spaceIdIndex'); // Use the created index
-      const request = index.getAll(spaceId);
-
-      request.onerror = () => {
-        console.error(`Error getting items by spaceId ${spaceId} from ${storeName}:`, request.error);
-        reject(request.error);
-      };
-      request.onsuccess = () => resolve(request.result as T[]);
-    } catch (error) {
-       console.error(`Error accessing index 'spaceIdIndex' on store ${storeName}:`, error);
-       reject(error);
-    }
-  });
-};
-
-const deleteItem = (db: IDBDatabase, storeName: string, id: string) => {
-  return new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = store.delete(id);
-
-    request.onerror = () => {
-        console.error(`Error deleting item ${id} from ${storeName}:`, request.error);
-        reject(request.error);
-    }
-    request.onsuccess = () => resolve();
-  });
-};
-
-const deleteItemsBySpaceId = (db: IDBDatabase, storeName: string, spaceId: string) => {
-  return new Promise<void>(async (resolve, reject) => {
-      try {
-          const itemsToDelete = await getItemsBySpaceId<any>(db, storeName, spaceId);
-          if (itemsToDelete.length === 0) {
-              resolve();
-              return;
-          }
-
-          const transaction = db.transaction([storeName], 'readwrite');
-          const store = transaction.objectStore(storeName);
-          let deleteCount = 0;
-
-          itemsToDelete.forEach(item => {
-              const request = store.delete(item.id);
-              request.onsuccess = () => {
-                  deleteCount++;
-                  if (deleteCount === itemsToDelete.length) {
-                      resolve();
-                  }
-              };
-              request.onerror = () => {
-                  console.error(`Error deleting item ${item.id} from ${storeName} by spaceId ${spaceId}:`, request.error);
-                  // Continue trying to delete others, but report the first error
-                  if (deleteCount < itemsToDelete.length) {
-                      reject(request.error);
-                      deleteCount = itemsToDelete.length; // Prevent resolving successfully
-                  }
-              };
-          });
-
-          transaction.onerror = () => {
-              console.error(`Transaction error deleting items from ${storeName} by spaceId ${spaceId}:`, transaction.error);
-              reject(transaction.error);
-          };
-
-      } catch (error) {
-          console.error(`Error fetching items to delete from ${storeName} by spaceId ${spaceId}:`, error);
-          reject(error);
-      }
-  });
-};
-
-
-// --- Context ---
-
+// --- Context Definition ---
 const SpaceContext = createContext<SpaceContextProps | undefined>(undefined);
 
 export const useSpaceContext = () => {
@@ -329,338 +114,329 @@ export const useSpaceContext = () => {
   return context;
 };
 
-// --- Provider ---
+// --- Provider Component ---
 
 interface SpaceProviderProps {
   children: React.ReactNode;
 }
 
 export const SpaceProvider = ({ children }: SpaceProviderProps) => {
-  const [db, setDb] = useState<IDBDatabase | null>(null);
+  // State Management
   const [spaces, setSpaces] = useState<Space[]>([]);
-  // State specific to the currently viewed space
+  const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [multiStepActions, setMultiStepActions] = useState<MultiStepAction[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading initially
+  const [error, setError] = useState<string | null>(null);
 
-  // --- Database Initialization ---
-  useEffect(() => {
-    const initializeDB = async () => {
-      try {
-        console.log("Initializing IndexedDB...");
-        const newDb = await openDB(DB_NAME, DB_VERSION);
-        console.log("IndexedDB initialized successfully.");
-        setDb(newDb);
-        // Load all spaces initially
-        await loadSpaces(newDb);
-      } catch (error) {
-        console.error("Failed to initialize IndexedDB:", error);
-        toast({ title: "Error", description: "Failed to initialize database.", variant: "destructive" });
-      }
-    };
-    initializeDB();
-  }, []);
-
-  // --- Data Loading Functions ---
- const loadSpaces = useCallback(async (database = db) => {
-    if (database) {
-      try {
-        const loadedSpaces = await getAllItems<Space>(database, STORES.SPACES);
-        setSpaces(loadedSpaces.map(s => ({ // Ensure dates are Date objects
-            ...s,
-            dateCreated: new Date(s.dateCreated),
-            dateModified: new Date(s.dateModified),
-        })));
-      } catch (error) {
-        console.error("Failed to load spaces:", error);
-        toast({ title: "Error", description: "Failed to load spaces.", variant: "destructive" });
-      }
-    }
-  }, [db]);
-
-
-  const loadDataForSpace = useCallback(async (spaceId: string) => {
-    if (db) {
-      console.log(`Loading data for space: ${spaceId}`);
-      try {
-        const [
-          loadedActions,
-          loadedMultiStepActions,
-          loadedLogEntries,
-          loadedWasteEntries,
-          loadedComments
-        ] = await Promise.all([
-          getItemsBySpaceId<Action>(db, STORES.ACTIONS, spaceId),
-          getItemsBySpaceId<MultiStepAction>(db, STORES.MULTI_STEP_ACTIONS, spaceId),
-          getItemsBySpaceId<LogEntry>(db, STORES.LOG_ENTRIES, spaceId),
-          getItemsBySpaceId<WasteEntry>(db, STORES.WASTE_ENTRIES, spaceId),
-          getItemsBySpaceId<Comment>(db, STORES.COMMENTS, spaceId),
-        ]);
-
-        // Sort log entries and waste entries by timestamp descending
-        loadedLogEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        loadedWasteEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        loadedComments.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-
-        setActions(loadedActions);
-        setMultiStepActions(loadedMultiStepActions);
-        setLogEntries(loadedLogEntries.map(l => ({ // Ensure dates are Date objects
-            ...l,
-            timestamp: new Date(l.timestamp),
-            clockInTime: l.clockInTime ? new Date(l.clockInTime) : undefined,
-            clockOutTime: l.clockOutTime ? new Date(l.clockOutTime) : undefined,
-        })));
-        setWasteEntries(loadedWasteEntries.map(w => ({ ...w, timestamp: new Date(w.timestamp)}))); // Ensure dates
-        setComments(loadedComments.map(c => ({ ...c, timestamp: new Date(c.timestamp) }))); // Ensure dates
-        console.log(`Data loaded for space ${spaceId}:`, { loadedActions, loadedMultiStepActions, loadedLogEntries, loadedWasteEntries, loadedComments });
-
-      } catch (error) {
-        console.error(`Failed to load data for space ${spaceId}:`, error);
-        toast({ title: "Error", description: `Failed to load data for space ${spaceId}.`, variant: "destructive" });
-         // Clear existing data on error?
-         setActions([]);
-         setMultiStepActions([]);
-         setLogEntries([]);
-         setWasteEntries([]);
-         setComments([]);
-      }
-    } else {
-        console.warn("Attempted to load data before DB was initialized.");
-    }
-  }, [db]); // Depend only on db
-
-
-  // --- Data Modification Functions ---
-
-  const addSpace = useCallback(async (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return undefined;
-    }
-    const newSpace: Space = {
-      ...spaceData,
-      id: uuidv4(),
-      dateCreated: new Date(),
-      dateModified: new Date(),
-      totalClockedInTime: 0,
-    };
+  // --- Helper Functions ---
+  const handleAsyncOperation = async <T>(operation: () => Promise<T>, loadingMessage: string = "Loading...", errorMessagePrefix: string = "Error"): Promise<T | undefined> => {
+    // setIsLoading(true); // Optionally show loading for every op
+    setError(null);
     try {
-      await addItem(db, STORES.SPACES, newSpace);
-      setSpaces(prev => [...prev, newSpace]);
-      return newSpace;
-    } catch (error) {
-      console.error("Failed to add space:", error);
-      toast({ title: "Error", description: "Failed to save space.", variant: "destructive" });
+        // console.log(loadingMessage); // Debug logging
+      const result = await operation();
+      return result;
+    } catch (err: any) {
+      console.error(`${errorMessagePrefix}:`, err);
+      const message = err.message || "An unknown error occurred.";
+      setError(message);
+      toast({ title: "Error", description: message, variant: "destructive" });
       return undefined;
+    } finally {
+      // setIsLoading(false); // Set loading false after op completes
     }
-  }, [db]);
+  };
+
+
+  // --- Data Loading ---
+  const loadSpaces = useCallback(async () => {
+    setIsLoading(true); // Set loading true when starting to load spaces
+    await handleAsyncOperation(async () => {
+        const loadedSpaces = await spaceService.getAllSpaces();
+        setSpaces(loadedSpaces);
+    }, "Loading spaces...", "Failed to load spaces");
+    setIsLoading(false); // Set loading false after spaces are loaded
+  }, []); // No dependencies needed as spaceService is stable
+
+
+    const loadSpaceDetails = useCallback(async (spaceId: string) => {
+        setIsLoading(true);
+        setError(null);
+        setCurrentSpace(null); // Clear previous details
+        setActions([]);
+        setMultiStepActions([]);
+        setLogEntries([]);
+        setWasteEntries([]);
+        setComments([]);
+
+        await handleAsyncOperation(async () => {
+            const spaceDetails = await spaceService.getSpace(spaceId);
+            if (!spaceDetails) {
+                throw new Error(`Space with ID ${spaceId} not found.`);
+            }
+            setCurrentSpace(spaceDetails);
+
+            // Load related data in parallel
+            const [
+                loadedActions,
+                loadedMultiStepActions,
+                loadedLogEntries,
+                loadedWasteEntries,
+                loadedComments
+            ] = await Promise.all([
+                actionService.getActionsForSpace(spaceId),
+                multiStepActionService.getMultiStepActionsForSpace(spaceId),
+                logEntryService.getLogEntriesForSpace(spaceId),
+                wasteEntryService.getWasteEntriesForSpace(spaceId),
+                commentService.getCommentsForSpace(spaceId),
+            ]);
+
+            setActions(loadedActions);
+            setMultiStepActions(loadedMultiStepActions);
+            setLogEntries(loadedLogEntries);
+            setWasteEntries(loadedWasteEntries);
+            setComments(loadedComments);
+
+             console.log(`Details loaded for space ${spaceId}:`, {
+                spaceDetails,
+                loadedActions,
+                loadedMultiStepActions,
+                loadedLogEntries,
+                loadedWasteEntries,
+                loadedComments,
+            });
+
+
+        }, `Loading details for space ${spaceId}...`, `Failed to load details for space ${spaceId}`);
+
+        setIsLoading(false);
+    }, []); // No dependencies needed as services are stable
+
+
+  // Initial load of all spaces
+  useEffect(() => {
+    loadSpaces();
+  }, [loadSpaces]);
+
+
+  // --- Data Modification Wrappers ---
+
+  const createSpace = useCallback(async (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => {
+      return handleAsyncOperation(async () => {
+          const newSpace = await spaceService.createSpace(spaceData);
+          // Optimistically update or reload all spaces
+           await loadSpaces(); // Reload the list to include the new space
+          return newSpace;
+        }, "Creating space...", "Failed to create space");
+    }, [loadSpaces]); // Depend on loadSpaces
 
   const updateSpace = useCallback(async (space: Space) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return;
-    }
-    const updatedSpace = { ...space, dateModified: new Date() };
-    try {
-      await addItem(db, STORES.SPACES, updatedSpace); // addItem also updates
-      setSpaces(prevSpaces => prevSpaces.map(s => s.id === updatedSpace.id ? updatedSpace : s));
-       // Also update the state if the change happened to the currently viewed space's data?
-       // This might be complex if editing from the list view.
-       // For now, relying on reload when entering the space.
-    } catch (error) {
-      console.error("Failed to update space:", error);
-      toast({ title: "Error", description: "Failed to update space.", variant: "destructive" });
-    }
-  }, [db]);
+      await handleAsyncOperation(async () => {
+          await spaceService.updateSpace(space);
+          // Update local state
+          setSpaces(prev => prev.map(s => s.id === space.id ? {...s, ...space, dateModified: new Date()} : s));
+          if (currentSpace?.id === space.id) {
+              setCurrentSpace({...currentSpace, ...space, dateModified: new Date()});
+          }
+        }, "Updating space...", "Failed to update space");
+    }, [currentSpace]); // Depend on currentSpace
 
-   const deleteSpace = useCallback(async (spaceId: string) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return;
-    }
-    try {
-      // Delete the space itself
-      await deleteItem(db, STORES.SPACES, spaceId);
+  const deleteSpace = useCallback(async (spaceId: string) => {
+    await handleAsyncOperation(async () => {
+        await spaceService.deleteSpace(spaceId);
+         // Update local state
+        setSpaces(prev => prev.filter(s => s.id !== spaceId));
+        if (currentSpace?.id === spaceId) {
+            setCurrentSpace(null); // Clear details if the current space was deleted
+             setActions([]);
+             setMultiStepActions([]);
+             setLogEntries([]);
+             setWasteEntries([]);
+             setComments([]);
+        }
+        toast({ title: "Space Deleted", description: "Space and all associated data removed." });
+    }, "Deleting space...", "Failed to delete space");
+  }, [currentSpace]);
 
-      // Delete all related items from other stores
-      await Promise.all([
-        deleteItemsBySpaceId(db, STORES.ACTIONS, spaceId),
-        deleteItemsBySpaceId(db, STORES.MULTI_STEP_ACTIONS, spaceId),
-        deleteItemsBySpaceId(db, STORES.LOG_ENTRIES, spaceId),
-        deleteItemsBySpaceId(db, STORES.WASTE_ENTRIES, spaceId),
-        deleteItemsBySpaceId(db, STORES.COMMENTS, spaceId),
-      ]);
-
-      // Update local state
-      setSpaces(prevSpaces => prevSpaces.filter(s => s.id !== spaceId));
-
-      // If the deleted space was the one being viewed, clear the detailed state
-      // (This part might need adjustment based on how navigation works)
-       setActions([]);
-       setMultiStepActions([]);
-       setLogEntries([]);
-       setWasteEntries([]);
-       setComments([]);
+  const addClockedTime = useCallback(async (spaceId: string, additionalMinutes: number) => {
+    await handleAsyncOperation(async () => {
+        await spaceService.addClockedTime(spaceId, additionalMinutes);
+        // Update local state optimistically or refetch
+        const updatedTotalTime = (currentSpace?.totalClockedInTime || 0) + additionalMinutes;
+        setSpaces(prev => prev.map(s => s.id === spaceId ? { ...s, totalClockedInTime: updatedTotalTime } : s));
+         if (currentSpace?.id === spaceId) {
+             setCurrentSpace(prev => prev ? { ...prev, totalClockedInTime: updatedTotalTime } : null);
+         }
+      }, "Updating clocked time...", "Failed to update clocked time");
+  }, [currentSpace]);
 
 
-      toast({ title: "Space Deleted", description: "Space and all associated data removed." });
-    } catch (error) {
-      console.error("Failed to delete space:", error);
-      toast({ title: "Error", description: "Failed to delete space.", variant: "destructive" });
-    }
-  }, [db]);
+   const createAction = useCallback(async (actionData: Omit<Action, 'id'>) => {
+        if (currentSpace?.id !== actionData.spaceId) {
+            console.error("Mismatch between current space and action data");
+            setError("Cannot add action to a different space.");
+            return undefined;
+        }
+        return handleAsyncOperation(async () => {
+            const newAction = await actionService.createAction(actionData);
+            setActions(prev => [...prev, newAction]); // Optimistic update
+            return newAction;
+        }, "Creating action...", "Failed to create action");
+    }, [currentSpace]); // Depend on currentSpace to ensure correct spaceId
 
-  const addAction = useCallback(async (actionData: Omit<Action, 'id'>) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return undefined;
-    }
-    const newAction: Action = { ...actionData, id: uuidv4() };
-    try {
-      await addItem(db, STORES.ACTIONS, newAction);
-      setActions(prev => [...prev, newAction]);
-      return newAction;
-    } catch (error) {
-      console.error("Failed to add action:", error);
-      toast({ title: "Error", description: "Failed to save action.", variant: "destructive" });
-      return undefined;
-    }
-  }, [db]);
+   const createMultiStepAction = useCallback(async (actionData: Omit<MultiStepAction, 'id' | 'currentStepIndex' | 'steps'> & { steps: Omit<ActionStep, 'id' | 'completed'>[] }) => {
+        if (currentSpace?.id !== actionData.spaceId) {
+            console.error("Mismatch between current space and multi-step action data");
+            setError("Cannot add multi-step action to a different space.");
+            return undefined;
+        }
+        return handleAsyncOperation(async () => {
+            const newAction = await multiStepActionService.createMultiStepAction(actionData);
+            setMultiStepActions(prev => [...prev, newAction]); // Optimistic update
+            return newAction;
+        }, "Creating multi-step action...", "Failed to create multi-step action");
+    }, [currentSpace]);
 
-  const addMultiStepAction = useCallback(async (actionData: Omit<MultiStepAction, 'id' | 'currentStepIndex'>) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return undefined;
-    }
-    const newAction: MultiStepAction = {
-      ...actionData,
-      id: uuidv4(),
-      currentStepIndex: 0,
-      steps: actionData.steps.map(step => ({ ...step, id: uuidv4(), completed: false })) // Assign IDs to steps
-    };
-    try {
-      await addItem(db, STORES.MULTI_STEP_ACTIONS, newAction);
-      setMultiStepActions(prev => [...prev, newAction]);
-      return newAction;
-    } catch (error) {
-      console.error("Failed to add multi-step action:", error);
-      toast({ title: "Error", description: "Failed to save multi-step action.", variant: "destructive" });
-      return undefined;
-    }
-  }, [db]);
+    // Define addLogEntry before completeMultiStepActionStep
+    const addLogEntry = useCallback(async (logEntryData: Omit<LogEntry, 'id' | 'timestamp'>) => {
+        if (currentSpace?.id !== logEntryData.spaceId) {
+            console.error("Mismatch between current space and log entry data");
+            setError("Cannot add log entry to a different space.");
+            return undefined;
+        }
+        return handleAsyncOperation(async () => {
+            const newLogEntry = await logEntryService.addLogEntry(logEntryData);
+             // Add to the beginning and ensure sorted order
+             setLogEntries(prev => [newLogEntry, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+            return newLogEntry;
+        }, "Adding log entry...", "Failed to add log entry");
+    }, [currentSpace]);
 
-  const updateMultiStepAction = useCallback(async (action: MultiStepAction) => {
-    if (!db) {
-       toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-       return;
-     }
-     try {
-       await addItem(db, STORES.MULTI_STEP_ACTIONS, action); // addItem updates
-       setMultiStepActions(prevActions => prevActions.map(a => a.id === action.id ? action : a));
-     } catch (error) {
-       console.error("Failed to update multi-step action:", error);
-       toast({ title: "Error", description: "Failed to update multi-step action.", variant: "destructive" });
-     }
-   }, [db]);
 
-  const addLogEntry = useCallback(async (logEntryData: Omit<LogEntry, 'id'>) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return undefined;
-    }
-     const newLogEntry: LogEntry = {
-        ...logEntryData,
-        id: uuidv4(),
-        // Ensure dates are correctly handled if passed as strings
-        timestamp: new Date(logEntryData.timestamp),
-        clockInTime: logEntryData.clockInTime ? new Date(logEntryData.clockInTime) : undefined,
-        clockOutTime: logEntryData.clockOutTime ? new Date(logEntryData.clockOutTime) : undefined,
-    };
-    try {
-      await addItem(db, STORES.LOG_ENTRIES, newLogEntry);
-      // Add to the beginning and ensure sorted order (though loadDataForSpace handles sorting on load)
-      setLogEntries(prev => [newLogEntry, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      return newLogEntry;
-    } catch (error) {
-      console.error("Failed to add log entry:", error);
-      toast({ title: "Error", description: "Failed to save log entry.", variant: "destructive" });
-      return undefined;
-    }
-  }, [db]);
+    const completeMultiStepActionStep = useCallback(async (actionId: string) => {
+        return handleAsyncOperation(async () => {
+            const updatedAction = await multiStepActionService.completeCurrentStep(actionId);
+            if (updatedAction) {
+                setMultiStepActions(prev => prev.map(a => a.id === actionId ? updatedAction : a));
 
-  const addWasteEntry = useCallback(async (wasteEntryData: Omit<WasteEntry, 'id'>) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return undefined;
-    }
-    const newWasteEntry: WasteEntry = {
-        ...wasteEntryData,
-         id: uuidv4(),
-         timestamp: new Date(wasteEntryData.timestamp) // Ensure date
-        };
-    try {
-      await addItem(db, STORES.WASTE_ENTRIES, newWasteEntry);
-       // Add to the beginning and ensure sorted order
-      setWasteEntries(prev => [newWasteEntry, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      return newWasteEntry;
-    } catch (error) {
-      console.error("Failed to add waste entry:", error);
-      toast({ title: "Error", description: "Failed to save waste entry.", variant: "destructive" });
-      return undefined;
-    }
-  }, [db]);
+                // Find the completed step index (it's now currentStepIndex - 1)
+                const completedStepIndex = updatedAction.currentStepIndex - 1;
+                if (completedStepIndex >= 0) {
+                     // Log the step completion
+                     // This now relies on addLogEntry defined above
+                     await addLogEntry({
+                        spaceId: updatedAction.spaceId,
+                        actionName: `${updatedAction.name} - Step ${completedStepIndex + 1}: ${updatedAction.steps[completedStepIndex].name}`,
+                        points: updatedAction.pointsPerStep,
+                        type: 'multiStepAction',
+                        multiStepActionId: actionId,
+                        stepIndex: completedStepIndex,
+                    });
+                     toast({
+                        title: 'Step Completed!',
+                        description: `Earned ${updatedAction.pointsPerStep} points for completing a step in "${updatedAction.name}".`,
+                    });
+                }
 
-  const addComment = useCallback(async (commentData: Omit<Comment, 'id'>) => {
-    if (!db) {
-      toast({ title: "Error", description: "Database not ready.", variant: "destructive" });
-      return undefined;
-    }
-     const newComment: Comment = {
-        ...commentData,
-        id: uuidv4(),
-        timestamp: new Date(commentData.timestamp) // Ensure date
-    };
-    try {
-      await addItem(db, STORES.COMMENTS, newComment);
-      // Add to the beginning and ensure sorted order
-      setComments(prev => [newComment, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      return newComment;
-    } catch (error) {
-      console.error("Failed to add comment:", error);
-      toast({ title: "Error", description: "Failed to save comment.", variant: "destructive" });
-      return undefined;
-    }
-  }, [db]);
+            }
+            return updatedAction;
+        }, "Completing step...", "Failed to complete step");
+     }, [addLogEntry]); // Ensure addLogEntry is a dependency
+
+
+    const addWasteEntries = useCallback(async (spaceId: string, categoryIds: string[]) => {
+        if (currentSpace?.id !== spaceId) {
+             console.error("Mismatch between current space and waste entry data");
+             setError("Cannot add waste entry to a different space.");
+             return [];
+         }
+        return await handleAsyncOperation(async () => {
+             const addedEntries = await wasteEntryService.addWasteEntries(spaceId, categoryIds);
+             if (addedEntries.length > 0) {
+                 // Add to the beginning and ensure sorted order
+                 setWasteEntries(prev => [...addedEntries, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+             }
+             return addedEntries;
+         }, "Adding waste entries...", "Failed to add waste entries") ?? []; // Return empty array on error
+     }, [currentSpace]);
+
+
+    const addComment = useCallback(async (commentData: Omit<Comment, 'id' | 'timestamp'>) => {
+        if (currentSpace?.id !== commentData.spaceId) {
+             console.error("Mismatch between current space and comment data");
+             setError("Cannot add comment to a different space.");
+             return undefined;
+         }
+        return handleAsyncOperation(async () => {
+            const newComment = await commentService.addComment(commentData);
+             // Add to the beginning and ensure sorted order
+            setComments(prev => [newComment, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+            return newComment;
+        }, "Adding comment...", "Failed to add comment");
+    }, [currentSpace]);
+
+
+  const clearCurrentSpace = useCallback(() => {
+      setCurrentSpace(null);
+      setActions([]);
+      setMultiStepActions([]);
+      setLogEntries([]);
+      setWasteEntries([]);
+      setComments([]);
+      setError(null);
+      // Don't set isLoading here, let loadSpaceDetails handle it
+  }, []);
+
 
   // --- Context Value ---
-  const contextValue = {
+  const contextValue = useMemo(() => ({
+    // State
     spaces,
+    currentSpace,
     actions,
     multiStepActions,
     logEntries,
     wasteEntries,
     comments,
-    db,
-    setActions, // Primarily for use within the context/provider if needed
-    setMultiStepActions,
-    setLogEntries,
-    setWasteEntries,
-    setComments,
-    addSpace,
+    isLoading,
+    error,
+
+    // Actions
+    loadSpaces,
+    loadSpaceDetails,
+    clearCurrentSpace,
+    createSpace,
     updateSpace,
     deleteSpace,
-    addAction,
-    addMultiStepAction,
-    updateMultiStepAction,
+    addClockedTime,
+
+    createAction,
+    // updateAction,
+    // deleteAction,
+
+    createMultiStepAction,
+    completeMultiStepActionStep,
+    // updateMultiStepAction,
+    // deleteMultiStepAction,
+
     addLogEntry,
-    addWasteEntry,
+    // deleteLogEntry,
+
+    addWasteEntries,
+    // deleteWasteEntry,
+
     addComment,
-    loadDataForSpace, // Expose function to load data for a specific space
-    loadSpaces, // Expose function to reload all spaces
-  };
+    // deleteComment,
+
+  }), [
+      spaces, currentSpace, actions, multiStepActions, logEntries, wasteEntries, comments, isLoading, error, // State
+      loadSpaces, loadSpaceDetails, clearCurrentSpace, createSpace, updateSpace, deleteSpace, addClockedTime, // Space Actions
+      createAction, createMultiStepAction, completeMultiStepActionStep, addLogEntry, addWasteEntries, addComment // Other Actions
+    ]);
 
   return (
     <SpaceContext.Provider value={contextValue}>
@@ -668,5 +444,3 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     </SpaceContext.Provider>
   );
 };
-
-    
