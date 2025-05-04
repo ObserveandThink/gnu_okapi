@@ -5,26 +5,26 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from "react";
-import { useSpaceContext } from "@/contexts/SpaceContext"; // Use the refactored context
+import { useSpaceContext } from "@/contexts/SpaceContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Shadcn select
-import { format } from 'date-fns';
-import { Skeleton } from '@/components/ui/skeleton'; // For loading state
-
-// Keep Space interface local if only used here, otherwise import from domain
-// import type { Space } from '@/core/domain/Space';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction, AlertDialogFooter } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatShortDate } from '@/utils/dateUtils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Copy } from 'lucide-react'; // Import Copy icon
 
 type SortKey = "dateCreated" | "dateModified";
 
 export default function Home() {
   const router = useRouter();
-  const { spaces, isLoading, error, deleteSpace, loadSpaces } = useSpaceContext(); // Get data and actions from context
-  const [sortBy, setSortBy] = useState<SortKey>("dateCreated");
+  const { spaces, isLoading, error, deleteSpace, loadSpaces, duplicateSpace } = useSpaceContext(); // Add duplicateSpace
+  const [sortBy, setSortBy] = useState<SortKey>("dateModified"); // Default sort by modified
 
-  // No need for local useEffect to load spaces, context handles initial load.
-  // We might need a refresh button or pull-to-refresh later.
+  useEffect(() => {
+    // Context handles initial load, but we might need manual refresh later
+    // loadSpaces(); // Potentially redundant if context loads initially
+  }, []); // Empty dependency array
 
   const handleCreateSpace = () => {
     router.push('/new-space');
@@ -36,13 +36,18 @@ export default function Home() {
 
   const handleDeleteConfirm = async (spaceId: string) => {
     await deleteSpace(spaceId);
+  };
+
+  const handleDuplicateConfirm = async (spaceId: string) => {
+    await duplicateSpace(spaceId);
     // Context state updates should trigger re-render
   };
 
   const sortedSpaces = useMemo(() => {
     return [...spaces].sort((a, b) => {
-      const dateA = new Date(a[sortBy]).getTime();
-      const dateB = new Date(b[sortBy]).getTime();
+      // Handle potential invalid dates if necessary, though should be Date objects from context
+      const dateA = new Date(a[sortBy] || 0).getTime();
+      const dateB = new Date(b[sortBy] || 0).getTime();
       // Sort descending (newest first)
       return dateB - dateA;
     });
@@ -62,8 +67,8 @@ export default function Home() {
           <Button
             size="lg"
             onClick={handleCreateSpace}
-            disabled={isLoading}
-            className="bg-primary text-primary-foreground hover:bg-primary/90" // Ensure styling consistency
+            disabled={isLoading} // Disable button during initial load
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             Create New Space
           </Button>
@@ -98,6 +103,7 @@ export default function Home() {
                              <Skeleton className="h-20 w-full mb-2" />
                              <Skeleton className="h-4 w-full mb-1" />
                              <Skeleton className="h-4 w-1/2" />
+                             <Skeleton className="h-8 w-full mt-4" />
                         </CardContent>
                     </Card>
                 ))}
@@ -125,32 +131,32 @@ export default function Home() {
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {sortedSpaces.map((space) => (
                 <Card
-                    className="bg-card rounded-lg overflow-hidden card-shadow transition-shadow duration-300 hover:shadow-lg flex flex-col" // Added flex flex-col
+                    className="bg-card rounded-lg overflow-hidden shadow-md transition-shadow duration-300 hover:shadow-lg flex flex-col"
                     key={space.id}
                 >
                     <CardHeader
-                        className="cursor-pointer p-4" // Adjust padding
+                        className="cursor-pointer p-4"
                         onClick={() => handleSpaceClick(space.id)}
                     >
-                    <CardTitle className="text-xl font-bold mb-1 truncate">{space.name}</CardTitle> {/* Smaller title, truncate */}
-                     <div className="flex space-x-2 mt-1"> {/* Images side-by-side */}
+                    <CardTitle className="text-xl font-bold mb-1 truncate">{space.name}</CardTitle>
+                     <div className="flex space-x-2 mt-1">
                          {space.beforeImage && (
-                            <img src={space.beforeImage} alt="Before" className="rounded-md max-h-24 object-cover flex-1" /> // Smaller images
+                            <img data-ai-hint="workspace before" src={space.beforeImage} alt="Before" className="rounded-md max-h-24 object-cover flex-1" />
                          )}
                           {space.afterImage && (
-                            <img src={space.afterImage} alt="After" className="rounded-md max-h-24 object-cover flex-1" /> // Smaller images
+                            <img data-ai-hint="workspace after" src={space.afterImage} alt="After" className="rounded-md max-h-24 object-cover flex-1" />
                           )}
                      </div>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 flex-grow"> {/* Adjust padding, flex-grow */}
-                    <CardDescription className="text-foreground mb-2 line-clamp-2">{space.description || "No description"}</CardDescription> {/* Line clamp */}
+                    <CardContent className="p-4 pt-0 flex-grow">
+                    <CardDescription className="text-foreground mb-2 line-clamp-2">{space.description || "No description"}</CardDescription>
                     {space.goal && <CardDescription className="text-sm text-primary mb-2">Goal: {space.goal}</CardDescription>}
-                    <div className="space-y-1 text-xs text-muted-foreground mt-auto"> {/* mt-auto pushes dates to bottom */}
+                    <div className="space-y-1 text-xs text-muted-foreground mt-auto">
                          <p>
-                            Created: {format(new Date(space.dateCreated), 'MMM dd, yyyy')}
+                            Created: {formatShortDate(space.dateCreated)}
                          </p>
                          <p>
-                            Modified: {format(new Date(space.dateModified), 'MMM dd, yyyy')}
+                            Modified: {formatShortDate(space.dateModified)}
                          </p>
                          <p>
                             Total Time: {space.totalClockedInTime} min
@@ -158,27 +164,49 @@ export default function Home() {
                     </div>
 
                     </CardContent>
-                     <div className="p-4 pt-0 mt-auto"> {/* Ensure delete button is at bottom */}
+                     <div className="p-4 pt-0 mt-auto flex gap-2"> {/* Container for buttons */}
+                         {/* Duplicate Button */}
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="flex-1">
+                                    <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Duplicate Space?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will create a copy of "{space.name}" with its actions. Log entries, comments, waste, and clocked time will not be copied.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDuplicateConfirm(space.id)}>
+                                        Duplicate
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
+                        {/* Delete Button */}
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="w-full">Delete</Button>
+                            <Button variant="destructive" size="sm" className="flex-1">Delete</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the space
+                                This action cannot be undone. This will permanently delete the space "{space.name}"
                                 and all associated actions, logs, waste entries, and comments.
                             </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <div className="flex justify-end gap-2 mt-4">
-                                 <AlertDialogCancel asChild>
-                                    <Button variant="secondary">Cancel</Button>
-                                </AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteConfirm(space.id)} className={buttonVariants({variant: "destructive"})}>
+                             <AlertDialogFooter>
+                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteConfirm(space.id)}>
                                     Delete
                                 </AlertDialogAction>
-                            </div>
+                             </AlertDialogFooter>
                         </AlertDialogContent>
                         </AlertDialog>
                      </div>
@@ -191,12 +219,3 @@ export default function Home() {
     </div>
   );
 }
-
-// Utility function for button variants if needed, or rely on Shadcn's variants
-const buttonVariants = ({ variant }: { variant: "destructive" | "secondary" | "default" }) => {
-    switch(variant) {
-        case "destructive": return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
-        case "secondary": return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
-        default: return "bg-primary text-primary-foreground hover:bg-primary/90";
-    }
-};

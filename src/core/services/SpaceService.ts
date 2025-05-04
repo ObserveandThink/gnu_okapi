@@ -5,8 +5,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { ISpaceRepository } from '@/core/ports/SpaceRepository';
 import type { Space } from '@/core/domain/Space';
+import type { Action } from '@/core/domain/Action';
+import type { MultiStepAction, ActionStep } from '@/core/domain/MultiStepAction';
 
-// Import other service types to handle cascading deletes
+// Import other service types to handle cascading deletes and duplication
 import type { ActionService } from './ActionService';
 import type { MultiStepActionService } from './MultiStepActionService';
 import type { LogEntryService } from './LogEntryService';
@@ -18,11 +20,11 @@ export class SpaceService {
   // Allow injecting other services for dependency management (like cascading deletes)
   constructor(
     private spaceRepository: ISpaceRepository,
-    private actionService?: ActionService,
-    private multiStepActionService?: MultiStepActionService,
-    private logEntryService?: LogEntryService,
-    private wasteEntryService?: WasteEntryService,
-    private commentService?: CommentService,
+    private actionService: ActionService, // Assume it's always provided for duplication
+    private multiStepActionService: MultiStepActionService, // Assume it's always provided for duplication
+    private logEntryService?: LogEntryService, // Optional for delete
+    private wasteEntryService?: WasteEntryService, // Optional for delete
+    private commentService?: CommentService, // Optional for delete
     ) {}
 
   /**
@@ -145,5 +147,74 @@ export class SpaceService {
 
     // 2. Delete the space itself
     return this.spaceRepository.delete(id);
+  }
+
+  /**
+   * Duplicates an existing space, including its simple and multi-step actions.
+   * Does NOT duplicate logs, waste entries, comments, or clocked time.
+   * Adds "(Copy)" to the name and resets dates.
+   * @param originalSpaceId - The ID of the space to duplicate.
+   * @returns A promise resolving to the newly created duplicated Space, or undefined if the original doesn't exist.
+   */
+  async duplicateSpace(originalSpaceId: string): Promise<Space | undefined> {
+    const originalSpace = await this.getSpace(originalSpaceId);
+    if (!originalSpace) {
+      console.error(`Cannot duplicate: Space with ID ${originalSpaceId} not found.`);
+      return undefined;
+    }
+
+    // 1. Create the new space data
+    const now = new Date();
+    const newSpaceData: Omit<Space, 'id'> = {
+      ...originalSpace, // Copy properties like description, goal, images
+      name: `${originalSpace.name} (Copy)`,
+      dateCreated: now,
+      dateModified: now,
+      totalClockedInTime: 0, // Reset clocked time
+    };
+    // Remove original ID before adding
+    delete (newSpaceData as any).id;
+
+    const newSpace = await this.spaceRepository.add(newSpaceData);
+    const newSpaceId = newSpace.id;
+
+    // 2. Duplicate Simple Actions
+    const originalActions = await this.actionService.getActionsForSpace(originalSpaceId);
+    const actionDuplicationPromises = originalActions.map(action => {
+      const newActionData: Omit<Action, 'id'> = {
+        ...action,
+        spaceId: newSpaceId, // Link to the new space
+      };
+       delete (newActionData as any).id; // Remove original ID
+      return this.actionService.createAction(newActionData);
+    });
+
+    // 3. Duplicate Multi-Step Actions
+    const originalMultiStepActions = await this.multiStepActionService.getMultiStepActionsForSpace(originalSpaceId);
+    const multiStepActionDuplicationPromises = originalMultiStepActions.map(action => {
+        // Create new step objects without original IDs and reset completion status
+        const newStepsData: Omit<ActionStep, 'id' | 'completed'>[] = action.steps.map(step => ({
+            name: step.name,
+        }));
+
+      const newMultiStepActionData: Omit<MultiStepAction, 'id' | 'currentStepIndex' | 'steps'> & { steps: Omit<ActionStep, 'id' | 'completed'>[] } = {
+        name: action.name,
+        spaceId: newSpaceId, // Link to the new space
+        description: action.description,
+        pointsPerStep: action.pointsPerStep,
+        steps: newStepsData, // Use the newly prepared step data
+      };
+       // ID, currentStepIndex are handled by createMultiStepAction
+      return this.multiStepActionService.createMultiStepAction(newMultiStepActionData);
+    });
+
+    // Wait for all duplications to complete
+    await Promise.all([
+        ...actionDuplicationPromises,
+        ...multiStepActionDuplicationPromises
+    ]);
+
+    console.log(`Space ${originalSpaceId} duplicated successfully into new space ${newSpaceId}`);
+    return newSpace; // Return the newly created space object
   }
 }

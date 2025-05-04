@@ -56,6 +56,7 @@ interface SpaceContextProps {
   updateSpace: (space: Space) => Promise<void>;
   deleteSpace: (spaceId: string) => Promise<void>;
   addClockedTime: (spaceId: string, additionalMinutes: number) => Promise<void>;
+  duplicateSpace: (spaceId: string) => Promise<void>; // New function
 
   createAction: (actionData: Omit<Action, 'id'>) => Promise<Action | undefined>;
   // updateAction: (action: Action) => Promise<void>; // Add if needed
@@ -92,7 +93,7 @@ const multiStepActionService = new MultiStepActionService(multiStepActionReposit
 const logEntryService = new LogEntryService(logEntryRepository);
 const wasteEntryService = new WasteEntryService(wasteEntryRepository);
 const commentService = new CommentService(commentRepository);
-// Inject all services into SpaceService for cascading deletes
+// Inject all services into SpaceService for cascading deletes and duplication
 const spaceService = new SpaceService(
     spaceRepository,
     actionService,
@@ -137,7 +138,6 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     // setIsLoading(true); // Optionally show loading for every op
     setError(null);
     try {
-        // console.log(loadingMessage); // Debug logging
       const result = await operation();
       return result;
     } catch (err: any) {
@@ -228,7 +228,6 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
   const createSpace = useCallback(async (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => {
       return handleAsyncOperation(async () => {
           const newSpace = await spaceService.createSpace(spaceData);
-          // Optimistically update or reload all spaces
            await loadSpaces(); // Reload the list to include the new space
           return newSpace;
         }, "Creating space...", "Failed to create space");
@@ -240,7 +239,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
           // Update local state
           setSpaces(prev => prev.map(s => s.id === space.id ? {...s, ...space, dateModified: new Date()} : s));
           if (currentSpace?.id === space.id) {
-              setCurrentSpace({...currentSpace, ...space, dateModified: new Date()});
+              setCurrentSpace(prev => prev ? {...prev, ...space, dateModified: new Date()} : null);
           }
         }, "Updating space...", "Failed to update space");
     }, [currentSpace]); // Depend on currentSpace
@@ -261,6 +260,18 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
         toast({ title: "Space Deleted", description: "Space and all associated data removed." });
     }, "Deleting space...", "Failed to delete space");
   }, [currentSpace]);
+
+  const duplicateSpace = useCallback(async (spaceId: string) => {
+    await handleAsyncOperation(async () => {
+        const duplicatedSpace = await spaceService.duplicateSpace(spaceId);
+        if (duplicatedSpace) {
+             await loadSpaces(); // Reload the list to include the duplicated space
+             toast({ title: "Space Duplicated", description: `"${duplicatedSpace.name}" created successfully.` });
+        } else {
+            throw new Error("Duplication failed or returned no space.");
+        }
+    }, "Duplicating space...", "Failed to duplicate space");
+  }, [loadSpaces]); // Depend on loadSpaces
 
   const addClockedTime = useCallback(async (spaceId: string, additionalMinutes: number) => {
     await handleAsyncOperation(async () => {
@@ -312,6 +323,13 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
             const newLogEntry = await logEntryService.addLogEntry(logEntryData);
              // Add to the beginning and ensure sorted order
              setLogEntries(prev => [newLogEntry, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+
+             // Update total points for current space immediately if points were added
+             if (newLogEntry.points > 0 && currentSpace?.id === newLogEntry.spaceId) {
+                 // No need to update space object directly, totalPoints is calculated
+                 // However, if Space object itself stored total points, we would update it here.
+             }
+
             return newLogEntry;
         }, "Adding log entry...", "Failed to add log entry");
     }, [currentSpace]);
@@ -412,6 +430,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     createSpace,
     updateSpace,
     deleteSpace,
+    duplicateSpace, // Include duplicateSpace
     addClockedTime,
 
     createAction,
@@ -434,7 +453,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
 
   }), [
       spaces, currentSpace, actions, multiStepActions, logEntries, wasteEntries, comments, isLoading, error, // State
-      loadSpaces, loadSpaceDetails, clearCurrentSpace, createSpace, updateSpace, deleteSpace, addClockedTime, // Space Actions
+      loadSpaces, loadSpaceDetails, clearCurrentSpace, createSpace, updateSpace, deleteSpace, duplicateSpace, addClockedTime, // Space Actions (added duplicateSpace)
       createAction, createMultiStepAction, completeMultiStepActionStep, addLogEntry, addWasteEntries, addComment // Other Actions
     ]);
 
