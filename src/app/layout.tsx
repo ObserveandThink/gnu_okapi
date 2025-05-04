@@ -4,7 +4,7 @@
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { SpaceProvider } from '@/contexts/SpaceContext'; // Correct path
-import type { AppProps } from 'next/app'; // Import AppProps if needed elsewhere, but not Metadata here
+import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'; // Import the registrar
 
 // Remove metadata export as it cannot be in a 'use client' file
 // export const metadata: Metadata = {
@@ -20,6 +20,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground"> {/* Added default styles */}
+        {/* Service Worker Registrar (client-side only) */}
+        <ServiceWorkerRegistrar />
+
         {/* SpaceProvider now wraps the entire application */}
         <SpaceProvider>
           {children}
