@@ -3,213 +3,120 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 14% 96%;
-  --foreground: 240 10% 3.9%;
+  --background: 220 14% 96%; /* Neutral light gray */
+  --foreground: 240 10% 15%; /* Dark gray */
 
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 240 10% 15%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
+  --popover-foreground: 240 10% 15%;
 
-  --primary: 180 48% 25%;
-  --primary-foreground: 0 0% 98%;
+  --primary: 180 48% 25%; /* Teal */
+  --primary-foreground: 0 0% 98%; /* Light foreground for primary */
 
-  --secondary: 0 0% 98%;
-  --secondary-foreground: 240 5.9% 10%;
+  --secondary: 0 0% 98%; /* Very light gray */
+  --secondary-foreground: 240 5.9% 10%; /* Dark gray */
 
-  --muted: 0 0% 96%;
-  --muted-foreground: 240 5% 46%;
+  --muted: 0 0% 90%; /* Slightly darker gray */
+  --muted-foreground: 240 5% 46%; /* Medium gray */
 
-  --accent: 180 48% 25%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 180 48% 25%; /* Teal */
+  --accent-foreground: 0 0% 98%; /* Light foreground for accent */
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 84% 60%; /* Default red */
+  --destructive-foreground: 0 0% 98%; /* Light foreground for destructive */
 
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
+  --border: 240 5.9% 85%; /* Lighter border */
+  --input: 240 5.9% 85%; /* Lighter input border */
 
-  --ring: 180 48% 25%;
+  --ring: 180 48% 30%; /* Teal, slightly darker for focus ring */
 
   --radius: 0.75rem; /* Increased radius for rounded corners */
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 180 48% 25%;
+  --background: 240 10% 5%; /* Darker background */
+  --foreground: 0 0% 95%; /* Lighter foreground */
+  --card: 240 10% 8%; /* Slightly lighter dark card */
+  --card-foreground: 0 0% 95%;
+  --popover: 240 10% 5%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 180 48% 35%; /* Slightly brighter Teal */
   --primary-foreground: 0 0% 98%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
+  --secondary: 240 3.7% 12%; /* Darker secondary */
+  --secondary-foreground: 0 0% 95%;
+  --muted: 240 3.7% 18%; /* Darker muted */
   --muted-foreground: 240 5% 64.9%;
-  --accent: 180 48% 25%;
+  --accent: 180 48% 35%; /* Slightly brighter Teal */
   --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 70% 50%; /* Slightly adjusted destructive red */
   --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 180 48% 25%;
+  --border: 240 3.7% 20%; /* Darker border */
+  --input: 240 3.7% 20%; /* Darker input border */
+  --ring: 180 48% 40%; /* Slightly brighter Teal ring */
 }
 
 /* Custom fonts */
 @layer base {
   body {
     @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* Default modern sans-serif */
   }
 
   h1, h2, h3, h4, h5, h6 {
+     /* Keeping default heading styles for now */
   }
 }
 
-.nes-btn {
-  font-size: 1.2rem;
-  padding: 0.75em 1.5em;
-  border-width: 3px;
-    border-radius: var(--radius); /* Consistent rounded corners */
-}
-
-.nes-input {
-  font-size: 1.2rem;
-  padding: 0.75em;
-  border-width: 3px;
-    border-radius: var(--radius); /* Consistent rounded corners */
-}
-
-/* Update base button, input, textarea, label styles */
+/* General button, input adjustments (less NES-specific) */
 button {
-    @apply text-base px-4 py-2 rounded-md font-medium; /* Use Tailwind defaults or adjust */
+    @apply text-base px-4 py-2 rounded-md font-medium transition-colors duration-200; /* Standard button styling */
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; /* Focus styles */
 }
 
-input {
-   @apply text-base px-3 py-2 rounded-md border border-input; /* Use Tailwind defaults or adjust */
+input, textarea {
+   @apply text-base px-3 py-2 rounded-md border border-input bg-background text-foreground; /* Standard input styling */
+   @apply placeholder:text-muted-foreground;
+   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1; /* Focus styles */
 }
 
 textarea {
-    @apply text-base px-3 py-2 rounded-md border border-input min-h-[60px]; /* Use Tailwind defaults or adjust */
+    @apply min-h-[60px];
 }
 
 label {
-   @apply text-sm font-medium leading-none; /* Use Tailwind defaults or adjust */
+   @apply text-sm font-medium leading-none text-foreground; /* Standard label */
 }
 
-.nes-container {
-  border-width: 3px;
-  padding: 1.5em;
-    border-radius: var(--radius); /* Consistent rounded corners */
-    /* Removed nes-specific shadow, rely on Tailwind/ShadCN */
+/* Card styling with optional shadow */
+.card-shadow {
+    @apply shadow-md; /* Optional shadow class */
 }
 
-.nes-container.with-title > .title {
-    font-size: 1.5rem;
+/* Progress Bar - Rely on ShadCN styles */
+progress {
+    /* ShadCN handles progress styling */
 }
 
-/* Dialog box */
-.nes-dialog {
-  padding: 1.5em;
-  border-width: 3px;
-    border-radius: var(--radius); /* Consistent rounded corners */
-    /* Removed nes-specific shadow, rely on Tailwind/ShadCN */
-}
-
-.nes-dialog .dialog-title {
-  font-size: 1.5rem;
-}
-
-.nes-progress {
-    height: 1.5em;
-    border-width: 3px;
-    border-radius: var(--radius); /* Consistent rounded corners */
-}
-
-/*Progress Bar */
-progress.nes-progress {
-    appearance: none;
-    box-sizing: border-box;
-    width: 100%;
-    height: 1em;
-    border: 2px solid black;
-    border-radius: var(--radius);
-    background: #eee;
-    color: green; /* Default progress color */
-    overflow: hidden; /* Hide the track behind the bar */
-}
-
-progress.nes-progress::-webkit-progress-bar {
-    background-color: #eee; /* Track color */
-}
-
-progress.nes-progress::-webkit-progress-value {
-    background-color: green; /* Bar color */
-}
-
-progress.nes-progress::-moz-progress-bar {
-    background-color: green; /* Bar color */
-}
-
-.nes-progress.is-primary {
-    color: blue;
-}
-
-.nes-progress.is-success {
-    color: green;
-}
-
-.nes-progress.is-warning {
-    color: orange;
-}
-
-.nes-progress.is-error {
-    color: red;
-}
-
-/* Added drop shadow to cards - renamed to avoid conflict */
-.card-custom-shadow {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
 
 /* General adjustments for a cleaner look */
 body {
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale; /* Added for Firefox */
     text-rendering: optimizeLegibility;
 }
 
-/* Add bounce animation */
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(-10%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: translateY(0);
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-
-.animate-bounce {
-  animation: bounce 1.5s infinite; /* Adjust duration as needed */
-}
-
-/* Add text shadow utility */
+/* Text shadow utility */
 @layer utilities {
-  .text-shadow-sm {
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  }
-  .text-shadow {
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
-  }
-  .text-shadow-md {
-    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
-  }
-  .text-shadow-lg {
-    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
-  }
-  .text-shadow-none {
-    text-shadow: none;
-  }
+  .text-shadow-sm { text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); }
+  .text-shadow { text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3); }
+  .text-shadow-md { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4); }
+  .text-shadow-lg { text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5); }
+  .text-shadow-none { text-shadow: none; }
+
+  /* Add mono font utility */
+   .font-mono {
+       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+   }
 }
