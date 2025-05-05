@@ -45,31 +45,49 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
     const [stream, setStream] = useState<MediaStream | null>(null);
 
     useEffect(() => {
+        let mounted = true;
+        let localStream: MediaStream | null = null;
+
         const getCameraPermission = async () => {
             try {
                 const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                setStream(cameraStream);
-                setHasCameraPermission(true);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = cameraStream;
+                if (mounted) {
+                    localStream = cameraStream;
+                    setStream(cameraStream);
+                    setHasCameraPermission(true);
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = cameraStream;
+                    }
+                } else {
+                    // Cleanup if component unmounted before permission granted
+                    cameraStream?.getTracks().forEach(track => track.stop());
                 }
             } catch (error) {
                 console.error('Error accessing camera:', error);
-                setHasCameraPermission(false);
-                toast({
-                    variant: 'destructive',
-                    title: 'Camera Access Denied',
-                    description: 'Please enable camera permissions in your browser settings.',
-                    className: 'bg-red-900/80 border-red-700 text-white', // HUD Style
-                });
+                 if (mounted) {
+                    setHasCameraPermission(false);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Camera Access Denied',
+                        description: 'Please enable camera permissions in your browser settings.',
+                        className: 'bg-red-900/80 border-red-700 text-white', // HUD Style
+                    });
+                 }
             }
         };
+
         getCameraPermission();
+
         return () => {
-            stream?.getTracks().forEach(track => track.stop());
+            mounted = false;
+            localStream?.getTracks().forEach(track => track.stop());
+            if (videoRef.current) {
+                 videoRef.current.srcObject = null; // Clean up srcObject
+            }
+            setStream(null); // Clear stream state
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, []); // Empty dependency array ensures this runs once on mount
 
     const handleCapture = () => {
         if (videoRef.current && canvasRef.current) {
@@ -82,19 +100,21 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL('image/jpeg');
                 onCapture(dataUrl);
-                onClose();
+                onClose(); // Close after capture
             }
         }
     };
 
-    return ( // Ensure return statement directly wraps JSX
-         <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm"> {/* HUD Style: Darker Overlay + Blur */}
-             <div className="bg-gray-900/80 rounded-lg p-4 max-w-lg w-full relative shadow-xl border border-blue-500/30 text-white"> {/* HUD Style: Dark, transparent bg, accent border */}
-                 <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white" onClick={onClose}>
+    // Ensure return statement directly wraps the JSX
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm"> {/* HUD Style: Darker Overlay + Blur */}
+            <div className="bg-gray-900/80 rounded-lg p-4 max-w-lg w-full relative shadow-xl border border-blue-500/30 text-white"> {/* HUD Style: Dark, transparent bg, accent border */}
+                <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white" onClick={onClose}>
                     <CloseIcon className="h-6 w-6" />
                 </Button>
                 <h2 className="text-xl font-bold mb-4 text-center text-blue-300 font-mono uppercase tracking-wider">CAMERA</h2> {/* HUD Style: Accent color, mono font */}
                 <div className="relative aspect-video w-full mb-4 overflow-hidden rounded-lg border-2 border-blue-400/50 shadow-inner shadow-blue-900"> {/* HUD Style: Accent border, inner shadow */}
+                   {/* Always render video tag to prevent race conditions */}
                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                    <canvas ref={canvasRef} className="hidden" />
                 </div>
@@ -117,8 +137,9 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
                  )}
             </div>
         </div>
-    ); // End of return statement
+    );
 };
+
 
 // TodoListComponent (Task Gallery) adapted for Game Mode Modal
 const TaskGalleryModal: React.FC<{ spaceId: string, isOpen: boolean, onClose: () => void }> = ({ spaceId, isOpen, onClose }) => {
@@ -938,3 +959,5 @@ export default function GameSpacePage() {
     </div>
   );
 }
+
+    
