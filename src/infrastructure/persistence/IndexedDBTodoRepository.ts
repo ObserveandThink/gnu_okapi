@@ -33,6 +33,9 @@ export class IndexedDBTodoRepository implements ITodoRepository {
         ...itemData,
         id: uuidv4(),
         dateCreated: itemData.dateCreated || new Date(), // Ensure timestamp exists
+        // beforeImage should be present based on service validation
+        beforeImage: itemData.beforeImage, // Keep as is
+        afterImage: itemData.afterImage || null, // Ensure null if undefined/empty
     };
     await addItem<TodoItem>(db, STORES.TODOS, newItem);
     return newItem;
@@ -40,8 +43,13 @@ export class IndexedDBTodoRepository implements ITodoRepository {
 
   async update(item: TodoItem): Promise<void> {
     const db = await openDB();
-    // Ensure date is stored correctly
-    const itemToUpdate = { ...item, dateCreated: new Date(item.dateCreated) };
+    // Ensure date is stored correctly and images are handled
+    const itemToUpdate = {
+        ...item,
+        dateCreated: new Date(item.dateCreated),
+        beforeImage: item.beforeImage, // Should exist
+        afterImage: item.afterImage || null,
+    };
     await updateItem<TodoItem>(db, STORES.TODOS, itemToUpdate);
   }
 
@@ -55,3 +63,5 @@ export class IndexedDBTodoRepository implements ITodoRepository {
     await deleteByIndex(db, STORES.TODOS, 'spaceIdIndex', spaceId);
   }
 }
+
+    

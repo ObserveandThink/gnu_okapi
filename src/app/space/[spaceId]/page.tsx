@@ -4,7 +4,7 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useSpaceContext } from '@/contexts/SpaceContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,9 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { handleImageUploadUtil } from '@/utils/imageUtils';
 import { formatTime, formatElapsedTime, formatShortDate } from '@/utils/dateUtils';
+import { Camera, Trash2, Edit, Upload, X as CloseIcon } from 'lucide-react'; // Import icons
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // For camera permission errors
+
 
 // Import Domain Models
 import type { Action } from '@/core/domain/Action';
@@ -41,176 +44,377 @@ const timwoodsCategories = [
   {id: 'skills', name: 'Skills', description: 'Underutilizing people\'s talents and skills', points: 8},
 ];
 
+// --- Camera Capture Component ---
+interface CameraCaptureProps {
+    onCapture: (dataUrl: string) => void;
+    onClose: () => void;
+}
+
+const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const [stream, setStream] = useState<MediaStream | null>(null);
+
+    useEffect(() => {
+        const getCameraPermission = async () => {
+            try {
+                const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                setStream(cameraStream);
+                setHasCameraPermission(true);
+                if (videoRef.current) {
+                    videoRef.current.srcObject = cameraStream;
+                }
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.',
+                });
+            }
+        };
+
+        getCameraPermission();
+
+        // Cleanup function to stop the stream when the component unmounts or closes
+        return () => {
+            stream?.getTracks().forEach(track => track.stop());
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount
+
+    const handleCapture = () => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            const context = canvas.getContext('2d');
+
+            if (context) {
+                // Set canvas dimensions to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                // Draw the current video frame onto the canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Get the image data URL (e.g., 'data:image/png;base64,...')
+                const dataUrl = canvas.toDataURL('image/jpeg'); // Or 'image/png'
+                onCapture(dataUrl);
+                onClose(); // Close camera view after capture
+            }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 p-4">
+            <div className="bg-background rounded-lg p-4 max-w-lg w-full relative">
+                <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10" onClick={onClose}>
+                    <CloseIcon className="h-5 w-5" />
+                </Button>
+                <h2 className="text-lg font-semibold mb-4 text-center">Camera Capture</h2>
+                <div className="relative aspect-video w-full mb-4">
+                   <video ref={videoRef} className="w-full h-full rounded-md object-cover" autoPlay muted playsInline />
+                   {/* Hidden canvas for capturing */}
+                   <canvas ref={canvasRef} className="hidden" />
+                </div>
+
+                {hasCameraPermission === false && (
+                    <Alert variant="destructive" className="mb-4">
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                            Camera permission was denied or unavailable. Please enable it in your browser settings and refresh.
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {hasCameraPermission === true && (
+                    <Button onClick={handleCapture} className="w-full" disabled={!stream}>
+                        <Camera className="mr-2 h-4 w-4" /> Capture Image
+                    </Button>
+                )}
+                 {hasCameraPermission === null && (
+                    <p className="text-center text-muted-foreground">Requesting camera access...</p>
+                 )}
+            </div>
+        </div>
+    );
+};
+
+
 // --- To-Do List Component ---
 const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
     const { todos, isLoading, error, createTodoItem, updateTodoItem, deleteTodoItem } = useSpaceContext();
-    const [newTodoDescription, setNewTodoDescription] = useState('');
+
+    // Add/Edit Modal State
+    const [isAddTodoModalOpen, setIsAddTodoModalOpen] = useState(false);
+    const [isEditTodoModalOpen, setIsEditTodoModalOpen] = useState(false);
     const [editingTodo, setEditingTodo] = useState<TodoItem | null>(null);
-    const [editDescription, setEditDescription] = useState('');
-    const [editBeforeImage, setEditBeforeImage] = useState<string | null>(null);
-    const [editAfterImage, setEditAfterImage] = useState<string | null>(null);
-    const [isTodoModalOpen, setIsTodoModalOpen] = useState(false);
 
-    const handleAddTodo = async () => {
-        if (!newTodoDescription.trim()) return;
-        await createTodoItem({ spaceId, description: newTodoDescription.trim() });
-        setNewTodoDescription(''); // Clear input after adding
+    // Form State (for both Add and Edit Modals)
+    const [description, setDescription] = useState('');
+    const [beforeImage, setBeforeImage] = useState<string | null>(null);
+    const [afterImage, setAfterImage] = useState<string | null>(null);
+
+    // Camera State
+    const [showCamera, setShowCamera] = useState<false | 'before' | 'after'>(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadTarget, setUploadTarget] = useState<'before' | 'after' | null>(null);
+
+
+    // --- Modal Handling ---
+    const openAddModal = () => {
+        setDescription('');
+        setBeforeImage(null);
+        setAfterImage(null);
+        setIsAddTodoModalOpen(true);
     };
 
-    const handleToggleComplete = async (item: TodoItem) => {
-        await updateTodoItem({ ...item, completed: !item.completed });
+    const openEditModal = (item: TodoItem) => {
+        setEditingTodo(item);
+        setDescription(item.description);
+        setBeforeImage(item.beforeImage || null);
+        setAfterImage(item.afterImage || null);
+        setIsEditTodoModalOpen(true);
     };
 
-    const handleDeleteTodo = async (id: string) => {
+    const closeModal = () => {
+        setIsAddTodoModalOpen(false);
+        setIsEditTodoModalOpen(false);
+        setEditingTodo(null);
+        // Reset form state
+        setDescription('');
+        setBeforeImage(null);
+        setAfterImage(null);
+        setShowCamera(false);
+        setUploadTarget(null);
+    };
+
+    // --- Image Handling ---
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (uploadTarget) {
+            handleImageUploadUtil(event, uploadTarget === 'before' ? setBeforeImage : setAfterImage);
+        }
+        setUploadTarget(null); // Reset target after handling
+    };
+
+    const triggerFileUpload = (target: 'before' | 'after') => {
+        setUploadTarget(target);
+        fileInputRef.current?.click();
+    };
+
+    const openCamera = (target: 'before' | 'after') => {
+        setShowCamera(target);
+    };
+
+    const handleCapture = (dataUrl: string) => {
+        if (showCamera === 'before') {
+            setBeforeImage(dataUrl);
+        } else if (showCamera === 'after') {
+            setAfterImage(dataUrl);
+        }
+        setShowCamera(false); // Close camera after capture
+    };
+
+    // --- CRUD Operations ---
+    const handleSave = async () => {
+        if (isLoading) return;
+
+        if (editingTodo) { // Update existing
+            if (!description.trim()) {
+                 toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
+                 return;
+            }
+            await updateTodoItem({
+                ...editingTodo,
+                description: description.trim(),
+                beforeImage: beforeImage,
+                afterImage: afterImage,
+            });
+        } else { // Create new
+            if (!description.trim()) {
+                toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
+                return;
+            }
+            if (!beforeImage) {
+                 toast({ title: "Validation Error", description: "Before image is required.", variant: "destructive" });
+                 return;
+            }
+            await createTodoItem({
+                spaceId,
+                description: description.trim(),
+                beforeImage: beforeImage,
+                afterImage: afterImage,
+            });
+        }
+        closeModal(); // Close modal on success
+    };
+
+    const handleDelete = async (id: string) => {
         await deleteTodoItem(id);
     };
 
-    const handleEditClick = (item: TodoItem) => {
-        setEditingTodo(item);
-        setEditDescription(item.description);
-        setEditBeforeImage(item.beforeImage || null);
-        setEditAfterImage(item.afterImage || null);
-        setIsTodoModalOpen(true);
-    };
-
-    const handleSaveEdit = async () => {
-        if (!editingTodo || !editDescription.trim()) return;
-        await updateTodoItem({
-            ...editingTodo,
-            description: editDescription.trim(),
-            beforeImage: editBeforeImage,
-            afterImage: editAfterImage,
-        });
-        setEditingTodo(null);
-        setIsTodoModalOpen(false);
-        setEditDescription('');
-        setEditBeforeImage(null);
-        setEditAfterImage(null);
-    };
-
-    const handleCancelEdit = () => {
-        setEditingTodo(null);
-        setIsTodoModalOpen(false);
-        setEditDescription('');
-        setEditBeforeImage(null);
-        setEditAfterImage(null);
-    };
-
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>, setImage: (value: string | null) => void) => {
-        handleImageUploadUtil(event, setImage); // Use the utility function
-    };
-
-
+    // --- Rendering ---
     if (isLoading && todos.length === 0) {
         return <Skeleton className="h-40 w-full mt-3" />;
     }
 
     if (error && todos.length === 0) {
-        return <p className="text-destructive text-xs mt-2">Error loading to-dos: {error}</p>;
+        return <p className="text-destructive text-xs mt-2">Error loading tasks: {error}</p>;
     }
 
     return (
         <div className="mt-3 w-full max-w-4xl">
-            <h2 className="text-base font-bold mb-1">To-Do List</h2>
-            <div className="flex gap-1 mb-2">
-                <Input
-                    type="text"
-                    placeholder="New to-do item..."
-                    value={newTodoDescription}
-                    onChange={(e) => setNewTodoDescription(e.target.value)}
-                    className="flex-grow p-1 border rounded text-foreground text-xs h-8"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddTodo()}
-                />
-                <Button onClick={handleAddTodo} size="sm" className="text-xs h-8" disabled={isLoading || !newTodoDescription.trim()}>
-                    Add
+            <div className="flex justify-between items-center mb-2">
+                <h2 className="text-base font-bold">Tasks / Gallery</h2>
+                <Button onClick={openAddModal} size="sm" className="text-xs h-8">
+                    Add Task
                 </Button>
             </div>
-            {todos.length === 0 && !isLoading && (
-                 <p className="text-xs text-muted-foreground text-center py-2">No to-do items yet.</p>
-            )}
-            <ScrollArea className="max-h-40 border rounded-md">
-                <div className="p-2 space-y-1">
-                    {todos.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-2 p-1 border-b last:border-b-0 text-xs">
-                            <div className="flex items-center gap-2 flex-grow min-w-0">
-                                <Checkbox
-                                    checked={item.completed}
-                                    onCheckedChange={() => handleToggleComplete(item)}
-                                    id={`todo-${item.id}`}
-                                    aria-labelledby={`todo-label-${item.id}`}
-                                />
-                                <label
-                                    htmlFor={`todo-${item.id}`}
-                                    id={`todo-label-${item.id}`}
-                                    className={`flex-grow truncate ${item.completed ? 'line-through text-muted-foreground' : ''}`}
-                                >
-                                    {item.description}
-                                </label>
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                                <Button variant="ghost" size="sm" className="h-6 px-1 py-0 text-xs" onClick={() => handleEditClick(item)}>
-                                    Edit
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-6 px-1 py-0 text-xs text-destructive" onClick={() => handleDeleteTodo(item.id)}>
-                                    Del
-                                </Button>
-                             </div>
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
 
-            {/* Edit Todo Modal */}
-            <Dialog open={isTodoModalOpen} onOpenChange={setIsTodoModalOpen}>
+            {todos.length === 0 && !isLoading && (
+                 <p className="text-xs text-muted-foreground text-center py-2">No tasks yet.</p>
+            )}
+
+            {todos.length > 0 && (
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                     {todos.map((item) => (
+                        <Card key={item.id} className="overflow-hidden group relative">
+                            <CardContent className="p-2 space-y-1">
+                                {item.beforeImage && (
+                                    <img
+                                        src={item.beforeImage}
+                                        alt="Before"
+                                        className="w-full h-24 object-cover rounded-md mb-1"
+                                    />
+                                )}
+                                {item.afterImage && (
+                                    <img
+                                        src={item.afterImage}
+                                        alt="After"
+                                        className="w-full h-24 object-cover rounded-md"
+                                    />
+                                )}
+                                <p className="text-xs font-semibold truncate" title={item.description}>
+                                    {item.description}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {formatShortDate(item.dateCreated)}
+                                </p>
+                            </CardContent>
+                            {/* Overlay for actions */}
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => openEditModal(item)}
+                                    aria-label="Edit Task"
+                                >
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => handleDelete(item.id)}
+                                    aria-label="Delete Task"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </Card>
+                     ))}
+                 </div>
+            )}
+
+            {/* Add/Edit Modal */}
+            <Dialog open={isAddTodoModalOpen || isEditTodoModalOpen} onOpenChange={closeModal}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Edit To-Do Item</DialogTitle>
+                        <DialogTitle>{editingTodo ? 'Edit Task' : 'Add New Task'}</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div>
-                            <Label htmlFor="edit-todo-desc">Description *</Label>
+                            <Label htmlFor="todo-desc">Description *</Label>
                             <Input
-                                id="edit-todo-desc"
-                                value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
+                                id="todo-desc"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Task description"
                             />
                         </div>
-                         {/* Before Image */}
-                        <div>
-                          <Label htmlFor="edit-beforeImage">Before Image</Label>
-                          <Input
-                            type="file"
-                            id="edit-beforeImage"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, setEditBeforeImage)}
-                             className="text-foreground file:text-foreground text-xs"
-                          />
-                          {editBeforeImage && (
-                            <img src={editBeforeImage} alt="Before preview" className="mt-2 rounded max-h-20 object-cover" />
-                          )}
+
+                        {/* Before Image Section */}
+                        <div className="space-y-2">
+                            <Label>Before Image {editingTodo ? '' : '*'}</Label>
+                            {beforeImage ? (
+                                <div className="relative">
+                                    <img src={beforeImage} alt="Before preview" className="rounded max-h-40 object-cover w-full" />
+                                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-white/70 hover:bg-white" onClick={() => setBeforeImage(null)}>
+                                         <CloseIcon className="h-4 w-4 text-destructive" />
+                                     </Button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <Button variant="outline" className="flex-1" onClick={() => triggerFileUpload('before')}>
+                                        <Upload className="mr-2 h-4 w-4" /> Upload
+                                    </Button>
+                                    <Button variant="outline" className="flex-1" onClick={() => openCamera('before')}>
+                                        <Camera className="mr-2 h-4 w-4" /> Use Camera
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
-                        {/* After Image */}
-                        <div>
-                          <Label htmlFor="edit-afterImage">After Image</Label>
-                          <Input
-                            type="file"
-                            id="edit-afterImage"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, setEditAfterImage)}
-                            className="text-foreground file:text-foreground text-xs"
-                          />
-                          {editAfterImage && (
-                            <img src={editAfterImage} alt="After preview" className="mt-2 rounded max-h-20 object-cover" />
-                          )}
-                        </div>
+                        {/* After Image Section */}
+                         <div className="space-y-2">
+                             <Label>After Image</Label>
+                             {afterImage ? (
+                                <div className="relative">
+                                    <img src={afterImage} alt="After preview" className="rounded max-h-40 object-cover w-full" />
+                                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-white/70 hover:bg-white" onClick={() => setAfterImage(null)}>
+                                          <CloseIcon className="h-4 w-4 text-destructive" />
+                                     </Button>
+                                 </div>
+                             ) : (
+                                <div className="flex gap-2">
+                                    <Button variant="outline" className="flex-1" onClick={() => triggerFileUpload('after')}>
+                                        <Upload className="mr-2 h-4 w-4" /> Upload
+                                    </Button>
+                                    <Button variant="outline" className="flex-1" onClick={() => openCamera('after')}>
+                                        <Camera className="mr-2 h-4 w-4" /> Use Camera
+                                    </Button>
+                                </div>
+                             )}
+                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="secondary" onClick={handleCancelEdit}>Cancel</Button>
-                        <Button type="button" onClick={handleSaveEdit} disabled={isLoading || !editDescription.trim()}>Save Changes</Button>
+                        <Button type="button" variant="secondary" onClick={closeModal}>Cancel</Button>
+                        <Button type="button" onClick={handleSave} disabled={isLoading || !description.trim() || (!editingTodo && !beforeImage)}>
+                            {isLoading ? 'Saving...' : (editingTodo ? 'Save Changes' : 'Add Task')}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+             {/* Hidden file input */}
+             <input
+                 type="file"
+                 ref={fileInputRef}
+                 onChange={handleFileChange}
+                 accept="image/*"
+                 className="hidden"
+             />
+
+            {/* Camera Capture Modal */}
+            {showCamera && (
+                <CameraCapture
+                    onCapture={handleCapture}
+                    onClose={() => setShowCamera(false)}
+                />
+            )}
         </div>
     );
 };
@@ -220,7 +424,7 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
 export default function SpaceDetailPage() {
     // Hooks and Context
   const params = useParams();
-  const spaceId = params.spaceId as string;
+  const spaceId = params.spaceId as string; // Type assertion
   const router = useRouter();
   const {
       currentSpace,
@@ -271,6 +475,10 @@ export default function SpaceDetailPage() {
    const [currentSessionElapsedTime, setCurrentSessionElapsedTime] = useState(0);
    const [timerIntervalId, setTimerIntervalId] = useState<NodeJS.Timeout | null>(null);
 
+   // Camera/Upload state for comments
+   const [showCommentCamera, setShowCommentCamera] = useState(false);
+   const commentFileInputRef = useRef<HTMLInputElement>(null);
+
     // --- Effects ---
    useEffect(() => {
     if (spaceId) {
@@ -287,7 +495,7 @@ export default function SpaceDetailPage() {
         setTimerIntervalId(null);
      };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [spaceId, loadSpaceDetails, clearCurrentSpace]);
+    }, [spaceId]); // Removed loadSpaceDetails, clearCurrentSpace to avoid potential loops if they change identity
 
 
     // Timer effect for current session duration
@@ -438,8 +646,17 @@ export default function SpaceDetailPage() {
     }
    };
 
+   // Comment Image Handling
+    const handleCommentFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        handleImageUploadUtil(event, setNewCommentImage);
+    };
+    const triggerCommentUpload = () => commentFileInputRef.current?.click();
+    const handleCommentCapture = (dataUrl: string) => {
+        setNewCommentImage(dataUrl);
+        setShowCommentCamera(false);
+    };
+
    // Comment Handling
-   const handleCommentImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => handleImageUploadUtil(event, setNewCommentImage);
    const handleAddComment = async () => {
     if (!currentSpace || (!newCommentText.trim() && !newCommentImage)) {
          toast({ title: "Validation Error", description: "Comment needs text or image.", variant: "destructive" }); return;
@@ -522,7 +739,7 @@ export default function SpaceDetailPage() {
             </div>
        </div>
 
-       {/* To-Do List Component */}
+       {/* To-Do List / Gallery Component */}
        <TodoListComponent spaceId={spaceId} />
 
       {/* Waste Tracking */}
@@ -563,11 +780,30 @@ export default function SpaceDetailPage() {
          </div>
         <div className="flex flex-col sm:flex-row gap-1 mt-1"> {/* Comment Input */}
              <Textarea id="comment" className="flex-grow p-1 border rounded text-foreground text-xs min-h-[40px] h-10 sm:h-auto" placeholder="Add a comment..." value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} />
-             <div className="flex flex-col gap-1 w-full sm:w-auto">
-                <Input type="file" id="image" accept="image/*" className="w-full p-1 border rounded text-xs h-8" onChange={handleCommentImageUpload} />
-                  {newCommentImage && <img src={newCommentImage} alt="Preview" className="rounded max-h-10 object-cover self-center sm:self-start" />}
+              <div className="flex flex-col gap-1 w-full sm:w-auto items-stretch">
+                {newCommentImage ? (
+                     <div className="relative">
+                         <img src={newCommentImage} alt="Comment Preview" className="rounded max-h-20 object-cover self-center sm:self-start" />
+                         <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-white/70 hover:bg-white" onClick={() => setNewCommentImage(null)}>
+                            <CloseIcon className="h-4 w-4 text-destructive" />
+                        </Button>
+                     </div>
+                 ) : (
+                     <div className="flex gap-1">
+                         <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={triggerCommentUpload}> <Upload className="mr-1 h-3 w-3" /> Pic </Button>
+                         <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => setShowCommentCamera(true)}> <Camera className="mr-1 h-3 w-3" /> Cam </Button>
+                     </div>
+                 )}
                  <Button onClick={handleAddComment} size="sm" className="text-xs h-8 w-full" disabled={isLoading || (!newCommentText.trim() && !newCommentImage)}> Add Comment </Button>
              </div>
+             {/* Hidden file input for comments */}
+             <input
+                 type="file"
+                 ref={commentFileInputRef}
+                 onChange={handleCommentFileChange}
+                 accept="image/*"
+                 className="hidden"
+             />
         </div>
       </div>
 
@@ -630,6 +866,16 @@ export default function SpaceDetailPage() {
           </DialogContent>
       </Dialog>
 
+       {/* Comment Camera Capture */}
+        {showCommentCamera && (
+            <CameraCapture
+                onCapture={handleCommentCapture}
+                onClose={() => setShowCommentCamera(false)}
+            />
+        )}
+
     </div>
   );
 }
+
+    

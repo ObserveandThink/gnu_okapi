@@ -11,20 +11,23 @@ export class TodoService {
 
   /**
    * Creates a new To-Do item for a given space.
-   * @param itemData - Data for the new item (spaceId, description, etc.).
+   * @param itemData - Data for the new item (spaceId, description, beforeImage, afterImage).
    * @returns A promise resolving to the created TodoItem.
    */
   async createTodoItem(itemData: Omit<TodoItem, 'id' | 'dateCreated' | 'completed'>): Promise<TodoItem> {
     if (!itemData.description.trim()) {
       throw new Error("To-Do description cannot be empty.");
     }
+    if (!itemData.beforeImage) {
+       throw new Error("Before image is required for a To-Do item.");
+    }
 
     const itemToAdd: Omit<TodoItem, 'id'> = {
       ...itemData,
-      completed: false,
+      completed: false, // Default to false, even if not used heavily in UI
       dateCreated: new Date(),
-      beforeImage: itemData.beforeImage || null,
-      afterImage: itemData.afterImage || null,
+      beforeImage: itemData.beforeImage, // Should be guaranteed by check above
+      afterImage: itemData.afterImage || null, // Ensure null if undefined
     };
 
     return this.todoRepository.add(itemToAdd);
@@ -40,7 +43,7 @@ export class TodoService {
   }
 
   /**
-   * Updates an existing To-Do item (e.g., mark as complete, add images).
+   * Updates an existing To-Do item (e.g., mark as complete, change images).
    * @param item - The item with updated data.
    * @returns A promise resolving when the update is complete.
    */
@@ -48,6 +51,9 @@ export class TodoService {
     if (!item.description.trim()) {
         throw new Error("To-Do description cannot be empty.");
     }
+    if (!item.beforeImage) {
+        throw new Error("Before image cannot be removed from an existing To-Do item.");
+     }
     // Add validation or business rules for updating if needed.
     return this.todoRepository.update(item);
   }
@@ -71,3 +77,5 @@ export class TodoService {
     return this.todoRepository.deleteBySpaceId(spaceId);
   }
 }
+
+    
