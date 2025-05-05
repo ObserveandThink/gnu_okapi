@@ -8,7 +8,7 @@
 
   --card: 0 0% 100%;
   --card-foreground: 240 10% 3.9%;
- 
+
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 3.9%;
 
@@ -81,35 +81,28 @@
     border-radius: var(--radius); /* Consistent rounded corners */
 }
 
+/* Update base button, input, textarea, label styles */
 button {
-    font-size: 1.5rem;
-    padding: 1rem 2rem;
-    border-radius: var(--radius);
-    font-weight: bold;
+    @apply text-base px-4 py-2 rounded-md font-medium; /* Use Tailwind defaults or adjust */
 }
 
 input {
-    font-size: 1.5rem;
-    padding: 0.75rem;
-    border-radius: var(--radius);
+   @apply text-base px-3 py-2 rounded-md border border-input; /* Use Tailwind defaults or adjust */
 }
 
 textarea {
-    font-size: 1.5rem;
-    padding: 0.75rem;
-    border-radius: var(--radius);
+    @apply text-base px-3 py-2 rounded-md border border-input min-h-[60px]; /* Use Tailwind defaults or adjust */
 }
 
 label {
-    font-size: 1.25rem;
-    font-weight: bold;
+   @apply text-sm font-medium leading-none; /* Use Tailwind defaults or adjust */
 }
 
 .nes-container {
   border-width: 3px;
   padding: 1.5em;
     border-radius: var(--radius); /* Consistent rounded corners */
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Added shadow */
+    /* Removed nes-specific shadow, rely on Tailwind/ShadCN */
 }
 
 .nes-container.with-title > .title {
@@ -121,7 +114,7 @@ label {
   padding: 1.5em;
   border-width: 3px;
     border-radius: var(--radius); /* Consistent rounded corners */
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Added shadow */
+    /* Removed nes-specific shadow, rely on Tailwind/ShadCN */
 }
 
 .nes-dialog .dialog-title {
@@ -175,8 +168,8 @@ progress.nes-progress::-moz-progress-bar {
     color: red;
 }
 
-/* Added drop shadow to cards */
-.card-shadow {
+/* Added drop shadow to cards - renamed to avoid conflict */
+.card-custom-shadow {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
@@ -184,4 +177,20 @@ progress.nes-progress::-moz-progress-bar {
 body {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+}
+
+/* Add bounce animation */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(-10%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1.5s infinite; /* Adjust duration as needed */
 }

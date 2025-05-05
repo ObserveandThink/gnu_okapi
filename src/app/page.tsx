@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatShortDate } from '@/utils/dateUtils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Copy } from 'lucide-react'; // Import Copy icon
+import { Copy, Gamepad2 } from 'lucide-react'; // Import Copy and Gamepad2 icons
 
 type SortKey = "dateCreated" | "dateModified";
 
@@ -22,8 +22,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortKey>("dateModified"); // Default sort by modified
 
   useEffect(() => {
-    // Context handles initial load, but we might need manual refresh later
-    // loadSpaces(); // Potentially redundant if context loads initially
+    // Context handles initial load
   }, []); // Empty dependency array
 
   const handleCreateSpace = () => {
@@ -32,6 +31,10 @@ export default function Home() {
 
   const handleSpaceClick = (spaceId: string) => {
     router.push(`/space/${spaceId}`);
+  };
+
+  const handleGameClick = (spaceId: string) => {
+    router.push(`/space/${spaceId}/game`);
   };
 
   const handleDeleteConfirm = async (spaceId: string) => {
@@ -164,12 +167,23 @@ export default function Home() {
                     </div>
 
                     </CardContent>
-                     <div className="p-4 pt-0 mt-auto flex gap-2"> {/* Container for buttons */}
+                     <div className="p-4 pt-0 mt-auto flex gap-2 items-stretch"> {/* Container for buttons */}
+                         {/* Game Button */}
+                         <Button
+                            variant="secondary"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleGameClick(space.id)}
+                            title="Go to Gamified View"
+                         >
+                            <Gamepad2 className="mr-2 h-4 w-4" /> Play
+                         </Button>
+
                          {/* Duplicate Button */}
                          <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-1">
-                                    <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                <Button variant="outline" size="icon" className="h-auto w-10" title="Duplicate Space">
+                                    <Copy className="h-4 w-4" />
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
@@ -191,7 +205,9 @@ export default function Home() {
                         {/* Delete Button */}
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm" className="flex-1">Delete</Button>
+                            <Button variant="destructive" size="icon" className="h-auto w-10" title="Delete Space">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                            </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
