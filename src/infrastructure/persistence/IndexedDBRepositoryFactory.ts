@@ -9,6 +9,7 @@ import { IndexedDBMultiStepActionRepository } from './IndexedDBMultiStepActionRe
 import { IndexedDBLogEntryRepository } from './IndexedDBLogEntryRepository';
 import { IndexedDBWasteEntryRepository } from './IndexedDBWasteEntryRepository';
 import { IndexedDBCommentRepository } from './IndexedDBCommentRepository';
+import { IndexedDBTodoRepository } from './IndexedDBTodoRepository'; // Import Todo repository
 
 export class IndexedDBRepositoryFactory implements IRepositoryFactory {
   createSpaceRepository() {
@@ -33,6 +34,10 @@ export class IndexedDBRepositoryFactory implements IRepositoryFactory {
 
   createCommentRepository() {
     return new IndexedDBCommentRepository();
+  }
+
+  createTodoRepository() { // Add method for Todo repository
+    return new IndexedDBTodoRepository();
   }
 }
 

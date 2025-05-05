@@ -22,6 +22,7 @@ import type { MultiStepAction, ActionStep } from '@/core/domain/MultiStepAction'
 import type { LogEntry } from '@/core/domain/LogEntry';
 import type { WasteEntry } from '@/core/domain/WasteEntry';
 import type { Comment } from '@/core/domain/Comment';
+import type { TodoItem } from '@/core/domain/TodoItem'; // Import TodoItem
 
 // Import Service Layer
 import { SpaceService } from '@/core/services/SpaceService';
@@ -30,6 +31,7 @@ import { MultiStepActionService } from '@/core/services/MultiStepActionService';
 import { LogEntryService } from '@/core/services/LogEntryService';
 import { WasteEntryService } from '@/core/services/WasteEntryService';
 import { CommentService } from '@/core/services/CommentService';
+import { TodoService } from '@/core/services/TodoService'; // Import TodoService
 
 // Import Repository Factory (using the singleton instance)
 import { repositoryFactory } from '@/infrastructure/persistence/IndexedDBRepositoryFactory';
@@ -45,6 +47,7 @@ interface SpaceContextProps {
   logEntries: LogEntry[];
   wasteEntries: WasteEntry[];
   comments: Comment[];
+  todos: TodoItem[]; // Add todos state
   isLoading: boolean; // Flag for loading states
   error: string | null; // To display errors
 
@@ -56,25 +59,23 @@ interface SpaceContextProps {
   updateSpace: (space: Space) => Promise<void>;
   deleteSpace: (spaceId: string) => Promise<void>;
   addClockedTime: (spaceId: string, additionalMinutes: number) => Promise<void>;
-  duplicateSpace: (spaceId: string) => Promise<void>; // New function
+  duplicateSpace: (spaceId: string) => Promise<void>;
 
   createAction: (actionData: Omit<Action, 'id'>) => Promise<Action | undefined>;
-  // updateAction: (action: Action) => Promise<void>; // Add if needed
-  // deleteAction: (id: string) => Promise<void>; // Add if needed
 
   createMultiStepAction: (actionData: Omit<MultiStepAction, 'id' | 'currentStepIndex' | 'steps'> & { steps: Omit<ActionStep, 'id' | 'completed'>[] }) => Promise<MultiStepAction | undefined>;
   completeMultiStepActionStep: (actionId: string) => Promise<MultiStepAction | undefined>;
-  // updateMultiStepAction: (action: MultiStepAction) => Promise<void>; // Add if needed
-  // deleteMultiStepAction: (id: string) => Promise<void>; // Add if needed
 
   addLogEntry: (logEntryData: Omit<LogEntry, 'id' | 'timestamp'>) => Promise<LogEntry | undefined>;
-  // deleteLogEntry: (id: string) => Promise<void>; // Add if needed
 
   addWasteEntries: (spaceId: string, categoryIds: string[]) => Promise<WasteEntry[]>;
-  // deleteWasteEntry: (id: string) => Promise<void>; // Add if needed
 
   addComment: (commentData: Omit<Comment, 'id' | 'timestamp'>) => Promise<Comment | undefined>;
-  // deleteComment: (id: string) => Promise<void>; // Add if needed
+
+  // Todo Actions
+  createTodoItem: (itemData: Omit<TodoItem, 'id' | 'dateCreated' | 'completed'>) => Promise<TodoItem | undefined>;
+  updateTodoItem: (item: TodoItem) => Promise<void>;
+  deleteTodoItem: (id: string) => Promise<void>;
 }
 
 // --- Service Instantiation ---
@@ -85,6 +86,7 @@ const multiStepActionRepository = repositoryFactory.createMultiStepActionReposit
 const logEntryRepository = repositoryFactory.createLogEntryRepository();
 const wasteEntryRepository = repositoryFactory.createWasteEntryRepository();
 const commentRepository = repositoryFactory.createCommentRepository();
+const todoRepository = repositoryFactory.createTodoRepository(); // Create Todo repository
 
 // Create instances of services, injecting repositories
 // Instantiate dependent services first
@@ -93,6 +95,7 @@ const multiStepActionService = new MultiStepActionService(multiStepActionReposit
 const logEntryService = new LogEntryService(logEntryRepository);
 const wasteEntryService = new WasteEntryService(wasteEntryRepository);
 const commentService = new CommentService(commentRepository);
+const todoService = new TodoService(todoRepository); // Instantiate TodoService
 // Inject all services into SpaceService for cascading deletes and duplication
 const spaceService = new SpaceService(
     spaceRepository,
@@ -100,9 +103,9 @@ const spaceService = new SpaceService(
     multiStepActionService,
     logEntryService,
     wasteEntryService,
-    commentService
+    commentService,
+    todoService // Inject TodoService
 );
-
 
 // --- Context Definition ---
 const SpaceContext = createContext<SpaceContextProps | undefined>(undefined);
@@ -130,6 +133,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [wasteEntries, setWasteEntries] = useState<WasteEntry[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [todos, setTodos] = useState<TodoItem[]>([]); // Add todos state
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading initially
   const [error, setError] = useState<string | null>(null);
 
@@ -151,7 +155,6 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     }
   };
 
-
   // --- Data Loading ---
   const loadSpaces = useCallback(async () => {
     setIsLoading(true); // Set loading true when starting to load spaces
@@ -160,89 +163,90 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
         setSpaces(loadedSpaces);
     }, "Loading spaces...", "Failed to load spaces");
     setIsLoading(false); // Set loading false after spaces are loaded
-  }, []); // No dependencies needed as spaceService is stable
+  }, []);
 
+  const loadSpaceDetails = useCallback(async (spaceId: string) => {
+    setIsLoading(true);
+    setError(null);
+    setCurrentSpace(null); // Clear previous details
+    setActions([]);
+    setMultiStepActions([]);
+    setLogEntries([]);
+    setWasteEntries([]);
+    setComments([]);
+    setTodos([]); // Clear previous todos
 
-    const loadSpaceDetails = useCallback(async (spaceId: string) => {
-        setIsLoading(true);
-        setError(null);
-        setCurrentSpace(null); // Clear previous details
-        setActions([]);
-        setMultiStepActions([]);
-        setLogEntries([]);
-        setWasteEntries([]);
-        setComments([]);
+    await handleAsyncOperation(async () => {
+        const spaceDetails = await spaceService.getSpace(spaceId);
+        if (!spaceDetails) {
+            throw new Error(`Space with ID ${spaceId} not found.`);
+        }
+        setCurrentSpace(spaceDetails);
 
-        await handleAsyncOperation(async () => {
-            const spaceDetails = await spaceService.getSpace(spaceId);
-            if (!spaceDetails) {
-                throw new Error(`Space with ID ${spaceId} not found.`);
-            }
-            setCurrentSpace(spaceDetails);
+        // Load related data in parallel
+        const [
+            loadedActions,
+            loadedMultiStepActions,
+            loadedLogEntries,
+            loadedWasteEntries,
+            loadedComments,
+            loadedTodos // Load todos
+        ] = await Promise.all([
+            actionService.getActionsForSpace(spaceId),
+            multiStepActionService.getMultiStepActionsForSpace(spaceId),
+            logEntryService.getLogEntriesForSpace(spaceId),
+            wasteEntryService.getWasteEntriesForSpace(spaceId),
+            commentService.getCommentsForSpace(spaceId),
+            todoService.getTodoItemsForSpace(spaceId), // Fetch todos
+        ]);
 
-            // Load related data in parallel
-            const [
-                loadedActions,
-                loadedMultiStepActions,
-                loadedLogEntries,
-                loadedWasteEntries,
-                loadedComments
-            ] = await Promise.all([
-                actionService.getActionsForSpace(spaceId),
-                multiStepActionService.getMultiStepActionsForSpace(spaceId),
-                logEntryService.getLogEntriesForSpace(spaceId),
-                wasteEntryService.getWasteEntriesForSpace(spaceId),
-                commentService.getCommentsForSpace(spaceId),
-            ]);
+        setActions(loadedActions);
+        setMultiStepActions(loadedMultiStepActions);
+        setLogEntries(loadedLogEntries);
+        setWasteEntries(loadedWasteEntries);
+        setComments(loadedComments);
+        setTodos(loadedTodos); // Set todos state
 
-            setActions(loadedActions);
-            setMultiStepActions(loadedMultiStepActions);
-            setLogEntries(loadedLogEntries);
-            setWasteEntries(loadedWasteEntries);
-            setComments(loadedComments);
+         console.log(`Details loaded for space ${spaceId}:`, {
+            spaceDetails,
+            loadedActions,
+            loadedMultiStepActions,
+            loadedLogEntries,
+            loadedWasteEntries,
+            loadedComments,
+            loadedTodos, // Log loaded todos
+        });
 
-             console.log(`Details loaded for space ${spaceId}:`, {
-                spaceDetails,
-                loadedActions,
-                loadedMultiStepActions,
-                loadedLogEntries,
-                loadedWasteEntries,
-                loadedComments,
-            });
+    }, `Loading details for space ${spaceId}...`, `Failed to load details for space ${spaceId}`);
 
-
-        }, `Loading details for space ${spaceId}...`, `Failed to load details for space ${spaceId}`);
-
-        setIsLoading(false);
-    }, []); // No dependencies needed as services are stable
-
+    setIsLoading(false);
+  }, []);
 
   // Initial load of all spaces
   useEffect(() => {
     loadSpaces();
   }, [loadSpaces]);
 
-
   // --- Data Modification Wrappers ---
 
   const createSpace = useCallback(async (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => {
-      return handleAsyncOperation(async () => {
-          const newSpace = await spaceService.createSpace(spaceData);
-           await loadSpaces(); // Reload the list to include the new space
-          return newSpace;
-        }, "Creating space...", "Failed to create space");
-    }, [loadSpaces]); // Depend on loadSpaces
+    return handleAsyncOperation(async () => {
+        const newSpace = await spaceService.createSpace(spaceData);
+         await loadSpaces(); // Reload the list to include the new space
+        return newSpace;
+      }, "Creating space...", "Failed to create space");
+  }, [loadSpaces]);
 
   const updateSpace = useCallback(async (space: Space) => {
-      await handleAsyncOperation(async () => {
-          await spaceService.updateSpace(space);
-          // Update local state
-          setSpaces(prev => prev.map(s => s.id === space.id ? {...s, ...space, dateModified: new Date()} : s));
-          if (currentSpace?.id === space.id) {
-              setCurrentSpace(prev => prev ? {...prev, ...space, dateModified: new Date()} : null);
-          }
-        }, "Updating space...", "Failed to update space");
-    }, [currentSpace]); // Depend on currentSpace
+    await handleAsyncOperation(async () => {
+        await spaceService.updateSpace(space);
+        // Update local state
+        setSpaces(prev => prev.map(s => s.id === space.id ? {...s, ...space, dateModified: new Date()} : s));
+        if (currentSpace?.id === space.id) {
+            setCurrentSpace(prev => prev ? {...prev, ...space, dateModified: new Date()} : null);
+        }
+      }, "Updating space...", "Failed to update space");
+  }, [currentSpace]);
 
   const deleteSpace = useCallback(async (spaceId: string) => {
     await handleAsyncOperation(async () => {
@@ -256,6 +260,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
              setLogEntries([]);
              setWasteEntries([]);
              setComments([]);
+             setTodos([]); // Clear todos
         }
         toast({ title: "Space Deleted", description: "Space and all associated data removed." });
     }, "Deleting space...", "Failed to delete space");
@@ -271,7 +276,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
             throw new Error("Duplication failed or returned no space.");
         }
     }, "Duplicating space...", "Failed to duplicate space");
-  }, [loadSpaces]); // Depend on loadSpaces
+  }, [loadSpaces]);
 
   const addClockedTime = useCallback(async (spaceId: string, additionalMinutes: number) => {
     await handleAsyncOperation(async () => {
@@ -285,117 +290,131 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
       }, "Updating clocked time...", "Failed to update clocked time");
   }, [currentSpace]);
 
+  const createAction = useCallback(async (actionData: Omit<Action, 'id'>) => {
+    if (currentSpace?.id !== actionData.spaceId) {
+        console.error("Mismatch between current space and action data");
+        setError("Cannot add action to a different space.");
+        return undefined;
+    }
+    return handleAsyncOperation(async () => {
+        const newAction = await actionService.createAction(actionData);
+        setActions(prev => [...prev, newAction]); // Optimistic update
+        return newAction;
+    }, "Creating action...", "Failed to create action");
+  }, [currentSpace]);
 
-   const createAction = useCallback(async (actionData: Omit<Action, 'id'>) => {
-        if (currentSpace?.id !== actionData.spaceId) {
-            console.error("Mismatch between current space and action data");
-            setError("Cannot add action to a different space.");
-            return undefined;
-        }
-        return handleAsyncOperation(async () => {
-            const newAction = await actionService.createAction(actionData);
-            setActions(prev => [...prev, newAction]); // Optimistic update
-            return newAction;
-        }, "Creating action...", "Failed to create action");
-    }, [currentSpace]); // Depend on currentSpace to ensure correct spaceId
+  const createMultiStepAction = useCallback(async (actionData: Omit<MultiStepAction, 'id' | 'currentStepIndex' | 'steps'> & { steps: Omit<ActionStep, 'id' | 'completed'>[] }) => {
+    if (currentSpace?.id !== actionData.spaceId) {
+        console.error("Mismatch between current space and multi-step action data");
+        setError("Cannot add multi-step action to a different space.");
+        return undefined;
+    }
+    return handleAsyncOperation(async () => {
+        const newAction = await multiStepActionService.createMultiStepAction(actionData);
+        setMultiStepActions(prev => [...prev, newAction]); // Optimistic update
+        return newAction;
+    }, "Creating multi-step action...", "Failed to create multi-step action");
+  }, [currentSpace]);
 
-   const createMultiStepAction = useCallback(async (actionData: Omit<MultiStepAction, 'id' | 'currentStepIndex' | 'steps'> & { steps: Omit<ActionStep, 'id' | 'completed'>[] }) => {
-        if (currentSpace?.id !== actionData.spaceId) {
-            console.error("Mismatch between current space and multi-step action data");
-            setError("Cannot add multi-step action to a different space.");
-            return undefined;
-        }
-        return handleAsyncOperation(async () => {
-            const newAction = await multiStepActionService.createMultiStepAction(actionData);
-            setMultiStepActions(prev => [...prev, newAction]); // Optimistic update
-            return newAction;
-        }, "Creating multi-step action...", "Failed to create multi-step action");
-    }, [currentSpace]);
+  const addLogEntry = useCallback(async (logEntryData: Omit<LogEntry, 'id' | 'timestamp'>) => {
+    if (currentSpace?.id !== logEntryData.spaceId) {
+        console.error("Mismatch between current space and log entry data");
+        setError("Cannot add log entry to a different space.");
+        return undefined;
+    }
+    return handleAsyncOperation(async () => {
+        const newLogEntry = await logEntryService.addLogEntry(logEntryData);
+         // Add to the beginning and ensure sorted order
+         setLogEntries(prev => [newLogEntry, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+        return newLogEntry;
+    }, "Adding log entry...", "Failed to add log entry");
+  }, [currentSpace]);
 
-    // Define addLogEntry before completeMultiStepActionStep
-    const addLogEntry = useCallback(async (logEntryData: Omit<LogEntry, 'id' | 'timestamp'>) => {
-        if (currentSpace?.id !== logEntryData.spaceId) {
-            console.error("Mismatch between current space and log entry data");
-            setError("Cannot add log entry to a different space.");
-            return undefined;
-        }
-        return handleAsyncOperation(async () => {
-            const newLogEntry = await logEntryService.addLogEntry(logEntryData);
-             // Add to the beginning and ensure sorted order
-             setLogEntries(prev => [newLogEntry, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+  const completeMultiStepActionStep = useCallback(async (actionId: string) => {
+    return handleAsyncOperation(async () => {
+        const updatedAction = await multiStepActionService.completeCurrentStep(actionId);
+        if (updatedAction) {
+            setMultiStepActions(prev => prev.map(a => a.id === actionId ? updatedAction : a));
 
-             // Update total points for current space immediately if points were added
-             if (newLogEntry.points > 0 && currentSpace?.id === newLogEntry.spaceId) {
-                 // No need to update space object directly, totalPoints is calculated
-                 // However, if Space object itself stored total points, we would update it here.
-             }
-
-            return newLogEntry;
-        }, "Adding log entry...", "Failed to add log entry");
-    }, [currentSpace]);
-
-
-    const completeMultiStepActionStep = useCallback(async (actionId: string) => {
-        return handleAsyncOperation(async () => {
-            const updatedAction = await multiStepActionService.completeCurrentStep(actionId);
-            if (updatedAction) {
-                setMultiStepActions(prev => prev.map(a => a.id === actionId ? updatedAction : a));
-
-                // Find the completed step index (it's now currentStepIndex - 1)
-                const completedStepIndex = updatedAction.currentStepIndex - 1;
-                if (completedStepIndex >= 0) {
-                     // Log the step completion
-                     // This now relies on addLogEntry defined above
-                     await addLogEntry({
-                        spaceId: updatedAction.spaceId,
-                        actionName: `${updatedAction.name} - Step ${completedStepIndex + 1}: ${updatedAction.steps[completedStepIndex].name}`,
-                        points: updatedAction.pointsPerStep,
-                        type: 'multiStepAction',
-                        multiStepActionId: actionId,
-                        stepIndex: completedStepIndex,
-                    });
-                     toast({
-                        title: 'Step Completed!',
-                        description: `Earned ${updatedAction.pointsPerStep} points for completing a step in "${updatedAction.name}".`,
-                    });
-                }
-
+            // Find the completed step index (it's now currentStepIndex - 1)
+            const completedStepIndex = updatedAction.currentStepIndex - 1;
+            if (completedStepIndex >= 0) {
+                 await addLogEntry({
+                    spaceId: updatedAction.spaceId,
+                    actionName: `${updatedAction.name} - Step ${completedStepIndex + 1}: ${updatedAction.steps[completedStepIndex].name}`,
+                    points: updatedAction.pointsPerStep,
+                    type: 'multiStepAction',
+                    multiStepActionId: actionId,
+                    stepIndex: completedStepIndex,
+                });
+                 toast({
+                    title: 'Step Completed!',
+                    description: `Earned ${updatedAction.pointsPerStep} points for completing a step in "${updatedAction.name}".`,
+                });
             }
-            return updatedAction;
-        }, "Completing step...", "Failed to complete step");
-     }, [addLogEntry]); // Ensure addLogEntry is a dependency
+        }
+        return updatedAction;
+    }, "Completing step...", "Failed to complete step");
+ }, [addLogEntry]);
 
-
-    const addWasteEntries = useCallback(async (spaceId: string, categoryIds: string[]) => {
-        if (currentSpace?.id !== spaceId) {
-             console.error("Mismatch between current space and waste entry data");
-             setError("Cannot add waste entry to a different space.");
-             return [];
-         }
-        return await handleAsyncOperation(async () => {
-             const addedEntries = await wasteEntryService.addWasteEntries(spaceId, categoryIds);
-             if (addedEntries.length > 0) {
-                 // Add to the beginning and ensure sorted order
-                 setWasteEntries(prev => [...addedEntries, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
-             }
-             return addedEntries;
-         }, "Adding waste entries...", "Failed to add waste entries") ?? []; // Return empty array on error
-     }, [currentSpace]);
-
-
-    const addComment = useCallback(async (commentData: Omit<Comment, 'id' | 'timestamp'>) => {
-        if (currentSpace?.id !== commentData.spaceId) {
-             console.error("Mismatch between current space and comment data");
-             setError("Cannot add comment to a different space.");
-             return undefined;
-         }
-        return handleAsyncOperation(async () => {
-            const newComment = await commentService.addComment(commentData);
+  const addWasteEntries = useCallback(async (spaceId: string, categoryIds: string[]) => {
+    if (currentSpace?.id !== spaceId) {
+         console.error("Mismatch between current space and waste entry data");
+         setError("Cannot add waste entry to a different space.");
+         return [];
+     }
+    return await handleAsyncOperation(async () => {
+         const addedEntries = await wasteEntryService.addWasteEntries(spaceId, categoryIds);
+         if (addedEntries.length > 0) {
              // Add to the beginning and ensure sorted order
-            setComments(prev => [newComment, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
-            return newComment;
-        }, "Adding comment...", "Failed to add comment");
-    }, [currentSpace]);
+             setWasteEntries(prev => [...addedEntries, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+         }
+         return addedEntries;
+     }, "Adding waste entries...", "Failed to add waste entries") ?? []; // Return empty array on error
+ }, [currentSpace]);
+
+  const addComment = useCallback(async (commentData: Omit<Comment, 'id' | 'timestamp'>) => {
+    if (currentSpace?.id !== commentData.spaceId) {
+         console.error("Mismatch between current space and comment data");
+         setError("Cannot add comment to a different space.");
+         return undefined;
+     }
+    return handleAsyncOperation(async () => {
+        const newComment = await commentService.addComment(commentData);
+         // Add to the beginning and ensure sorted order
+        setComments(prev => [newComment, ...prev].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+        return newComment;
+    }, "Adding comment...", "Failed to add comment");
+  }, [currentSpace]);
+
+   // --- To-Do Item Actions ---
+   const createTodoItem = useCallback(async (itemData: Omit<TodoItem, 'id' | 'dateCreated' | 'completed'>) => {
+    if (currentSpace?.id !== itemData.spaceId) {
+      console.error("Mismatch between current space and todo item data");
+      setError("Cannot add todo item to a different space.");
+      return undefined;
+    }
+    return handleAsyncOperation(async () => {
+      const newItem = await todoService.createTodoItem(itemData);
+      setTodos(prev => [...prev, newItem].sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()));
+      return newItem;
+    }, "Creating to-do item...", "Failed to create to-do item");
+  }, [currentSpace]);
+
+  const updateTodoItem = useCallback(async (item: TodoItem) => {
+    await handleAsyncOperation(async () => {
+      await todoService.updateTodoItem(item);
+      setTodos(prev => prev.map(t => t.id === item.id ? item : t).sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()));
+    }, "Updating to-do item...", "Failed to update to-do item");
+  }, []);
+
+  const deleteTodoItem = useCallback(async (id: string) => {
+    await handleAsyncOperation(async () => {
+      await todoService.deleteTodoItem(id);
+      setTodos(prev => prev.filter(t => t.id !== id));
+      toast({ title: "To-Do Item Deleted" });
+    }, "Deleting to-do item...", "Failed to delete to-do item");
+  }, []);
 
 
   const clearCurrentSpace = useCallback(() => {
@@ -405,10 +424,10 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
       setLogEntries([]);
       setWasteEntries([]);
       setComments([]);
+      setTodos([]); // Clear todos
       setError(null);
       // Don't set isLoading here, let loadSpaceDetails handle it
   }, []);
-
 
   // --- Context Value ---
   const contextValue = useMemo(() => ({
@@ -420,6 +439,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     logEntries,
     wasteEntries,
     comments,
+    todos, // Include todos state
     isLoading,
     error,
 
@@ -430,31 +450,30 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
     createSpace,
     updateSpace,
     deleteSpace,
-    duplicateSpace, // Include duplicateSpace
+    duplicateSpace,
     addClockedTime,
 
     createAction,
-    // updateAction,
-    // deleteAction,
 
     createMultiStepAction,
     completeMultiStepActionStep,
-    // updateMultiStepAction,
-    // deleteMultiStepAction,
 
     addLogEntry,
-    // deleteLogEntry,
 
     addWasteEntries,
-    // deleteWasteEntry,
 
     addComment,
-    // deleteComment,
+
+    // Todo Actions
+    createTodoItem,
+    updateTodoItem,
+    deleteTodoItem,
 
   }), [
-      spaces, currentSpace, actions, multiStepActions, logEntries, wasteEntries, comments, isLoading, error, // State
-      loadSpaces, loadSpaceDetails, clearCurrentSpace, createSpace, updateSpace, deleteSpace, duplicateSpace, addClockedTime, // Space Actions (added duplicateSpace)
-      createAction, createMultiStepAction, completeMultiStepActionStep, addLogEntry, addWasteEntries, addComment // Other Actions
+      spaces, currentSpace, actions, multiStepActions, logEntries, wasteEntries, comments, todos, isLoading, error, // State (added todos)
+      loadSpaces, loadSpaceDetails, clearCurrentSpace, createSpace, updateSpace, deleteSpace, duplicateSpace, addClockedTime, // Space Actions
+      createAction, createMultiStepAction, completeMultiStepActionStep, addLogEntry, addWasteEntries, addComment, // Other Actions
+      createTodoItem, updateTodoItem, deleteTodoItem // Todo Actions
     ]);
 
   return (

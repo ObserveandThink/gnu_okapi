@@ -9,6 +9,7 @@ import type { ILogEntryRepository } from './LogEntryRepository';
 import type { IMultiStepActionRepository } from './MultiStepActionRepository';
 import type { ISpaceRepository } from './SpaceRepository';
 import type { IWasteEntryRepository } from './WasteEntryRepository';
+import type { ITodoRepository } from './TodoRepository'; // Import Todo interface
 
 export interface IRepositoryFactory {
   createSpaceRepository(): ISpaceRepository;
@@ -17,4 +18,5 @@ export interface IRepositoryFactory {
   createLogEntryRepository(): ILogEntryRepository;
   createWasteEntryRepository(): IWasteEntryRepository;
   createCommentRepository(): ICommentRepository;
+  createTodoRepository(): ITodoRepository; // Add method for Todo repository
 }

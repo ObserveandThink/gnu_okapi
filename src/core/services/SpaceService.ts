@@ -14,7 +14,7 @@ import type { MultiStepActionService } from './MultiStepActionService';
 import type { LogEntryService } from './LogEntryService';
 import type { WasteEntryService } from './WasteEntryService';
 import type { CommentService } from './CommentService';
-
+import type { TodoService } from './TodoService'; // Import TodoService type
 
 export class SpaceService {
   // Allow injecting other services for dependency management (like cascading deletes)
@@ -25,6 +25,7 @@ export class SpaceService {
     private logEntryService?: LogEntryService, // Optional for delete
     private wasteEntryService?: WasteEntryService, // Optional for delete
     private commentService?: CommentService, // Optional for delete
+    private todoService?: TodoService, // Optional for delete
     ) {}
 
   /**
@@ -119,7 +120,7 @@ export class SpaceService {
    }
 
   /**
-   * Deletes a space and all associated data (actions, logs, etc.).
+   * Deletes a space and all associated data (actions, logs, todos, etc.).
    * Requires other services to be injected for cascading deletes.
    * @param id - The ID of the space to delete.
    * @returns A promise resolving when the deletion is complete.
@@ -142,6 +143,9 @@ export class SpaceService {
      if (this.commentService) {
          deletionPromises.push(this.commentService.deleteCommentsForSpace(id));
      }
+     if (this.todoService) { // Add deletion for todos
+        deletionPromises.push(this.todoService.deleteTodoItemsForSpace(id));
+     }
 
     await Promise.all(deletionPromises);
 
@@ -151,7 +155,7 @@ export class SpaceService {
 
   /**
    * Duplicates an existing space, including its simple and multi-step actions.
-   * Does NOT duplicate logs, waste entries, comments, or clocked time.
+   * Does NOT duplicate logs, waste entries, comments, todos, or clocked time.
    * Adds "(Copy)" to the name and resets dates.
    * @param originalSpaceId - The ID of the space to duplicate.
    * @returns A promise resolving to the newly created duplicated Space, or undefined if the original doesn't exist.
@@ -207,6 +211,8 @@ export class SpaceService {
        // ID, currentStepIndex are handled by createMultiStepAction
       return this.multiStepActionService.createMultiStepAction(newMultiStepActionData);
     });
+
+    // Note: To-Do items are NOT duplicated by this function.
 
     // Wait for all duplications to complete
     await Promise.all([
