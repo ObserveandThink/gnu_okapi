@@ -107,7 +107,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
 
     // Ensure return statement directly wraps the JSX
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm"> {/* HUD Style: Darker Overlay + Blur */}
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm">
             <div className="bg-gray-900/80 rounded-lg p-4 max-w-lg w-full relative shadow-xl border border-blue-500/30 text-white"> {/* HUD Style: Dark, transparent bg, accent border */}
                 <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white" onClick={onClose}>
                     <CloseIcon className="h-6 w-6" />
@@ -959,5 +959,7 @@ export default function GameSpacePage() {
     </div>
   );
 }
+
+    
 
     
