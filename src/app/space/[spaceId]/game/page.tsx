@@ -87,7 +87,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
         }
     };
 
-    return ( // Added missing return statement
+    return ( // Ensure return statement directly wraps JSX
          <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm"> {/* HUD Style: Darker Overlay + Blur */}
              <div className="bg-gray-900/80 rounded-lg p-4 max-w-lg w-full relative shadow-xl border border-blue-500/30 text-white"> {/* HUD Style: Dark, transparent bg, accent border */}
                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white" onClick={onClose}>
@@ -117,7 +117,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
                  )}
             </div>
         </div>
-    ); // Added missing closing parenthesis
+    ); // End of return statement
 };
 
 // TodoListComponent (Task Gallery) adapted for Game Mode Modal
