@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { handleImageUploadUtil } from '@/utils/imageUtils';
 import { formatTime, formatElapsedTime, formatShortDate } from '@/utils/dateUtils';
-import { Camera, Trash2, Edit, Upload, X as CloseIcon } from 'lucide-react'; // Import icons
+import { Camera, Trash2, Edit, Upload, X as CloseIcon, Info } from 'lucide-react'; // Import icons
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // For camera permission errors
 
 
@@ -145,7 +145,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
 
 // --- To-Do List Component ---
 const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
-    const { todos, isLoading, error, createTodoItem, updateTodoItem, deleteTodoItem } = useSpaceContext();
+    const { todos, isLoading: isContextLoading, error, createTodoItem, updateTodoItem, deleteTodoItem } = useSpaceContext();
 
     // Add/Edit Modal State
     const [isAddTodoModalOpen, setIsAddTodoModalOpen] = useState(false);
@@ -156,6 +156,7 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
     const [description, setDescription] = useState('');
     const [beforeImage, setBeforeImage] = useState<string | null>(null);
     const [afterImage, setAfterImage] = useState<string | null>(null);
+    const [modalLoading, setModalLoading] = useState(false);
 
     // Camera State
     const [showCamera, setShowCamera] = useState<false | 'before' | 'after'>(false);
@@ -197,6 +198,8 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
             handleImageUploadUtil(event, uploadTarget === 'before' ? setBeforeImage : setAfterImage);
         }
         setUploadTarget(null); // Reset target after handling
+         // Clear the file input value after processing
+        if (event.target) event.target.value = '';
     };
 
     const triggerFileUpload = (target: 'before' | 'after') => {
@@ -219,44 +222,56 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
 
     // --- CRUD Operations ---
     const handleSave = async () => {
-        if (isLoading) return;
+        if (isContextLoading || modalLoading) return;
+        setModalLoading(true);
 
-        if (editingTodo) { // Update existing
-            if (!description.trim()) {
-                 toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
-                 return;
+        try {
+            if (editingTodo) { // Update existing
+                if (!description.trim()) {
+                     toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
+                     return;
+                }
+                 if (!beforeImage) {
+                    toast({ title: "Validation Error", description: "Before image cannot be removed.", variant: "destructive" });
+                    return;
+                 }
+                await updateTodoItem({
+                    ...editingTodo,
+                    description: description.trim(),
+                    beforeImage: beforeImage, // Always required
+                    afterImage: afterImage,
+                });
+                toast({ title: "Task Updated" });
+            } else { // Create new
+                if (!description.trim()) {
+                    toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
+                    return;
+                }
+                if (!beforeImage) {
+                     toast({ title: "Validation Error", description: "Before image is required.", variant: "destructive" });
+                     return;
+                }
+                await createTodoItem({
+                    spaceId,
+                    description: description.trim(),
+                    beforeImage: beforeImage,
+                    afterImage: afterImage,
+                });
+                 toast({ title: "Task Added" });
             }
-            await updateTodoItem({
-                ...editingTodo,
-                description: description.trim(),
-                beforeImage: beforeImage,
-                afterImage: afterImage,
-            });
-        } else { // Create new
-            if (!description.trim()) {
-                toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
-                return;
-            }
-            if (!beforeImage) {
-                 toast({ title: "Validation Error", description: "Before image is required.", variant: "destructive" });
-                 return;
-            }
-            await createTodoItem({
-                spaceId,
-                description: description.trim(),
-                beforeImage: beforeImage,
-                afterImage: afterImage,
-            });
+            closeModal(); // Close modal on success
+        } finally {
+            setModalLoading(false);
         }
-        closeModal(); // Close modal on success
     };
 
     const handleDelete = async (id: string) => {
+        if (isContextLoading) return;
         await deleteTodoItem(id);
     };
 
     // --- Rendering ---
-    if (isLoading && todos.length === 0) {
+    if (isContextLoading && todos.length === 0) {
         return <Skeleton className="h-40 w-full mt-3" />;
     }
 
@@ -273,7 +288,7 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
                 </Button>
             </div>
 
-            {todos.length === 0 && !isLoading && (
+            {todos.length === 0 && !isContextLoading && (
                  <p className="text-xs text-muted-foreground text-center py-2">No tasks yet.</p>
             )}
 
@@ -287,6 +302,7 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
                                         src={item.beforeImage}
                                         alt="Before"
                                         className="w-full h-24 object-cover rounded-md mb-1"
+                                        data-ai-hint="task before"
                                     />
                                 )}
                                 {item.afterImage && (
@@ -294,6 +310,7 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
                                         src={item.afterImage}
                                         alt="After"
                                         className="w-full h-24 object-cover rounded-md"
+                                         data-ai-hint="task after"
                                     />
                                 )}
                                 <p className="text-xs font-semibold truncate" title={item.description}>
@@ -348,7 +365,7 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
 
                         {/* Before Image Section */}
                         <div className="space-y-2">
-                            <Label>Before Image {editingTodo ? '' : '*'}</Label>
+                            <Label>Before Image *</Label>
                             {beforeImage ? (
                                 <div className="relative">
                                     <img src={beforeImage} alt="Before preview" className="rounded max-h-40 object-cover w-full" />
@@ -391,9 +408,9 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
                          </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="secondary" onClick={closeModal}>Cancel</Button>
-                        <Button type="button" onClick={handleSave} disabled={isLoading || !description.trim() || (!editingTodo && !beforeImage)}>
-                            {isLoading ? 'Saving...' : (editingTodo ? 'Save Changes' : 'Add Task')}
+                        <Button type="button" variant="secondary" onClick={closeModal} disabled={modalLoading}>Cancel</Button>
+                        <Button type="button" onClick={handleSave} disabled={isContextLoading || modalLoading || !description.trim() || !beforeImage}>
+                            {modalLoading ? 'Saving...' : (editingTodo ? 'Save Changes' : 'Add Task')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -435,7 +452,7 @@ export default function SpaceDetailPage({
       logEntries,
       wasteEntries,
       comments,
-      isLoading,
+      isLoading, // Use the context's isLoading
       error,
       loadSpaceDetails,
       clearCurrentSpace,
@@ -446,7 +463,6 @@ export default function SpaceDetailPage({
       addWasteEntries,
       addComment,
       addClockedTime,
-      // Removed todo-related functions as they are handled by TodoListComponent
   } = useSpaceContext();
 
   // Local UI State (moved todo-specific state to TodoListComponent)
@@ -470,6 +486,7 @@ export default function SpaceDetailPage({
   const [isLogDetailsOpen, setIsLogDetailsOpen] = useState(false);
   const [isWasteDetailsOpen, setIsWasteDetailsOpen] = useState(false);
   const [isCommentDetailsOpen, setIsCommentDetailsOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
    // Clock-in/out State
    const [isClockedIn, setIsClockedIn] = useState(false);
@@ -537,6 +554,7 @@ export default function SpaceDetailPage({
     if (!isClockedIn || !clockInStartTime || currentSessionElapsedTime <= 0) {
         return 0;
     }
+    // Only consider points earned during the *current* session
     const sessionPointEntries = logEntries.filter(
         entry => entry.timestamp >= clockInStartTime && entry.points > 0
     );
@@ -551,34 +569,44 @@ export default function SpaceDetailPage({
 
    // Clock In/Out
    const handleClockIn = async () => {
-    if (!currentSpace) return;
-    const now = new Date();
-    setIsClockedIn(true);
-    setClockInStartTime(now);
-    setCurrentSessionElapsedTime(0);
-    await addLogEntry({ spaceId: currentSpace.id, actionName: 'Clock In', points: 0, type: 'clockIn' });
-    toast({ title: 'Clocked In!', description: 'Start earning points!' });
+    if (!currentSpace || isLoading) return;
+    setModalLoading(true);
+    try {
+        const now = new Date();
+        setIsClockedIn(true);
+        setClockInStartTime(now);
+        setCurrentSessionElapsedTime(0);
+        await addLogEntry({ spaceId: currentSpace.id, actionName: 'Clock In', points: 0, type: 'clockIn' });
+        toast({ title: 'Clocked In!', description: 'Start earning points!' });
+    } finally {
+        setModalLoading(false);
+    }
   };
 
    const handleClockOut = async () => {
-    if (!currentSpace || !clockInStartTime) return;
-    const now = new Date();
-    setIsClockedIn(false);
-    const timeDifference = now.getTime() - clockInStartTime.getTime();
-    const minutesClockedInThisSession = Math.floor(timeDifference / (1000 * 60));
-    await addClockedTime(currentSpace.id, minutesClockedInThisSession);
-    await addLogEntry({
-      spaceId: currentSpace.id,
-      actionName: 'Clock Out',
-      points: 0,
-      type: 'clockOut',
-      clockInTime: clockInStartTime,
-      clockOutTime: now,
-      minutesClockedIn: minutesClockedInThisSession,
-    });
-    setClockInStartTime(null);
-    setCurrentSessionElapsedTime(0);
-    toast({ title: 'Clocked Out!', description: `Session time: ${minutesClockedInThisSession} min.` });
+    if (!currentSpace || !clockInStartTime || isLoading) return;
+     setModalLoading(true);
+    try {
+        const now = new Date();
+        setIsClockedIn(false);
+        const timeDifference = now.getTime() - clockInStartTime.getTime();
+        const minutesClockedInThisSession = Math.floor(timeDifference / (1000 * 60));
+        await addClockedTime(currentSpace.id, minutesClockedInThisSession);
+        await addLogEntry({
+          spaceId: currentSpace.id,
+          actionName: 'Clock Out',
+          points: 0,
+          type: 'clockOut',
+          clockInTime: clockInStartTime,
+          clockOutTime: now,
+          minutesClockedIn: minutesClockedInThisSession,
+        });
+        setClockInStartTime(null);
+        setCurrentSessionElapsedTime(0);
+        toast({ title: 'Clocked Out!', description: `Session time: ${minutesClockedInThisSession} min.` });
+    } finally {
+        setModalLoading(false);
+    }
   };
 
    // Action Handling
@@ -587,34 +615,49 @@ export default function SpaceDetailPage({
       toast({ title: 'Not Clocked In!', description: 'Clock in first.', variant: 'destructive' });
       return;
     }
-    if (!currentSpace) return;
-    const pointsEarned = action.points * multiplier;
-    await addLogEntry({ spaceId: currentSpace.id, actionName: `${action.name} (x${multiplier})`, points: pointsEarned, type: 'action' });
-    toast({ title: 'Action Logged!', description: `Earned ${pointsEarned} points.` });
+    if (!currentSpace || isLoading) return;
+     setModalLoading(true);
+    try {
+        const pointsEarned = action.points * multiplier;
+        await addLogEntry({ spaceId: currentSpace.id, actionName: `${action.name} (x${multiplier})`, points: pointsEarned, type: 'action' });
+        toast({ title: 'Action Logged!', description: `Earned ${pointsEarned} points.` });
+    } finally {
+         setModalLoading(false);
+    }
   };
 
   const handleSaveAction = async () => {
-    if (!currentSpace || !newActionName.trim()) return;
-    const points = Number(newActionPoints) || 1;
-    const success = await createAction({ spaceId: currentSpace.id, name: newActionName.trim(), description: newActionDescription.trim(), points });
-    if (success) {
-      setNewActionName(''); setNewActionDescription(''); setNewActionPoints(1); setIsCreateActionModalOpen(false);
-       toast({ title: 'Action Created!', description: `Action "${newActionName.trim()}" added.` });
+    if (!currentSpace || !newActionName.trim() || isLoading) return;
+    setModalLoading(true);
+    try {
+        const points = Number(newActionPoints) || 1;
+        const success = await createAction({ spaceId: currentSpace.id, name: newActionName.trim(), description: newActionDescription.trim(), points });
+        if (success) {
+          setNewActionName(''); setNewActionDescription(''); setNewActionPoints(1); setIsCreateActionModalOpen(false);
+           toast({ title: 'Action Created!', description: `Action "${newActionName.trim()}" added.` });
+        }
+    } finally {
+        setModalLoading(false);
     }
   };
 
    // Multi-Step Action Handling
     const handleSaveMultiStepAction = async () => {
-        if (!currentSpace || !newMultiStepActionName.trim() || newMultiStepActionSteps.some(s => !s.trim())) {
+        if (!currentSpace || !newMultiStepActionName.trim() || newMultiStepActionSteps.some(s => !s.trim()) || isLoading) {
              toast({ title: "Validation Error", description: "Action name and all steps required.", variant: "destructive" });
             return;
         }
-        const points = Number(newMultiStepActionPoints) || 1;
-        const stepsData = newMultiStepActionSteps.map(name => ({ name: name.trim() }));
-        const success = await createMultiStepAction({ spaceId: currentSpace.id, name: newMultiStepActionName.trim(), description: newMultiStepActionDescription.trim(), pointsPerStep: points, steps: stepsData });
-        if (success) {
-            setNewMultiStepActionName(''); setNewMultiStepActionDescription(''); setNewMultiStepActionPoints(1); setNewMultiStepActionSteps(['']); setIsCreateMultiStepActionModalOpen(false);
-            toast({ title: 'Multi-Step Action Created!', description: `Action "${newMultiStepActionName.trim()}" added.` });
+        setModalLoading(true);
+        try {
+            const points = Number(newMultiStepActionPoints) || 1;
+            const stepsData = newMultiStepActionSteps.map(name => ({ name: name.trim() }));
+            const success = await createMultiStepAction({ spaceId: currentSpace.id, name: newMultiStepActionName.trim(), description: newMultiStepActionDescription.trim(), pointsPerStep: points, steps: stepsData });
+            if (success) {
+                setNewMultiStepActionName(''); setNewMultiStepActionDescription(''); setNewMultiStepActionPoints(1); setNewMultiStepActionSteps(['']); setIsCreateMultiStepActionModalOpen(false);
+                toast({ title: 'Multi-Step Action Created!', description: `Action "${newMultiStepActionName.trim()}" added.` });
+            }
+        } finally {
+            setModalLoading(false);
         }
     };
 
@@ -622,10 +665,17 @@ export default function SpaceDetailPage({
         if (!isClockedIn) {
             toast({ title: 'Not Clocked In!', description: 'Clock in first.', variant: 'destructive' }); return;
         }
-        if (action.currentStepIndex >= action.steps.length) {
-            toast({ title: 'Action Complete', variant: "default" }); return;
+        if (action.currentStepIndex >= action.steps.length || isLoading) {
+            if (action.currentStepIndex >= action.steps.length) toast({ title: 'Action Complete', variant: "default" });
+            return;
         }
-        await completeMultiStepActionStep(action.id);
+        setModalLoading(true);
+        try {
+            await completeMultiStepActionStep(action.id);
+            // Toast is handled within completeMultiStepActionStep via context
+        } finally {
+            setModalLoading(false);
+        }
     };
 
      const handleStepNameChange = (index: number, value: string) => {
@@ -640,17 +690,24 @@ export default function SpaceDetailPage({
    const handleAddWasteClick = () => setIsAddWasteModalOpen(true);
    const handleWasteCategoryClick = (categoryId: string) => setSelectedWasteCategories(prev => prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]);
    const handleSaveWaste = async () => {
-    if (!currentSpace || selectedWasteCategories.length === 0) return;
-    const added = await addWasteEntries(currentSpace.id, selectedWasteCategories);
-    if (added.length > 0) {
-         toast({ title: 'Waste Added!', description: `Added ${added.length} waste entr${added.length > 1 ? 'ies' : 'y'}.` });
-        setSelectedWasteCategories([]); setIsAddWasteModalOpen(false);
+    if (!currentSpace || selectedWasteCategories.length === 0 || isLoading) return;
+    setModalLoading(true);
+    try {
+        const added = await addWasteEntries(currentSpace.id, selectedWasteCategories);
+        if (added.length > 0) {
+             toast({ title: 'Waste Added!', description: `Added ${added.length} waste entr${added.length > 1 ? 'ies' : 'y'}.` });
+            setSelectedWasteCategories([]); setIsAddWasteModalOpen(false);
+        }
+    } finally {
+        setModalLoading(false);
     }
    };
 
    // Comment Image Handling
     const handleCommentFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         handleImageUploadUtil(event, setNewCommentImage);
+         // Clear the file input value after processing
+        if (event.target) event.target.value = '';
     };
     const triggerCommentUpload = () => commentFileInputRef.current?.click();
     const handleCommentCapture = (dataUrl: string) => {
@@ -660,33 +717,58 @@ export default function SpaceDetailPage({
 
    // Comment Handling
    const handleAddComment = async () => {
-    if (!currentSpace || (!newCommentText.trim() && !newCommentImage)) {
+    if (!currentSpace || (!newCommentText.trim() && !newCommentImage) || isLoading) {
          toast({ title: "Validation Error", description: "Comment needs text or image.", variant: "destructive" }); return;
     }
-    const success = await addComment({ spaceId: currentSpace.id, text: newCommentText.trim(), imageUrl: newCommentImage });
-    if (success) {
-        setNewCommentText(''); setNewCommentImage(null);
-         toast({ title: "Comment Added" });
+    setModalLoading(true);
+    try {
+        const success = await addComment({ spaceId: currentSpace.id, text: newCommentText.trim(), imageUrl: newCommentImage });
+        if (success) {
+            setNewCommentText(''); setNewCommentImage(null);
+             toast({ title: "Comment Added" });
+        }
+    } finally {
+        setModalLoading(false);
     }
    };
 
    // --- Render Logic ---
-   if (isLoading && !currentSpace) {
-    return <div className="flex flex-col items-center justify-start min-h-screen py-4 bg-background p-2"> {/* Loading Skeleton */}
-        <Skeleton className="h-10 w-3/4 max-w-lg mb-2" /> <Skeleton className="h-8 w-1/2 max-w-md mb-4" />
-        <div className="w-full max-w-4xl space-y-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-40 w-full" /><Skeleton className="h-32 w-full" /><Skeleton className="h-20 w-full" /></div>
-    </div>;
-  }
-  if (error) {
+   // Display loading skeleton while context is loading OR if currentSpace is not yet available
+   if (isLoading || !currentSpace) {
+       return (
+           <div className="flex flex-col items-center justify-start min-h-screen py-4 bg-background p-2">
+               <Card className="w-full max-w-4xl mb-2">
+                   <CardHeader className="p-2 flex flex-row items-center justify-between">
+                       <Skeleton className="h-6 w-1/2" /> {/* Placeholder for title */}
+                       <Skeleton className="h-8 w-16" /> {/* Placeholder for back button */}
+                   </CardHeader>
+               </Card>
+               <Card className="w-full max-w-4xl mb-2">
+                   <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                       <Skeleton className="h-10 w-full" /> {/* Placeholder for clock button */}
+                       <Skeleton className="h-10 w-full" />
+                       <Skeleton className="h-10 w-full" />
+                       <Skeleton className="h-10 w-full" />
+                       <Skeleton className="h-10 w-full" />
+                       <Skeleton className="h-10 w-full" />
+                   </CardContent>
+               </Card>
+               <div className="w-full max-w-4xl space-y-4 mt-2">
+                   <Skeleton className="h-24 w-full" /> {/* Actions placeholder */}
+                   <Skeleton className="h-40 w-full" /> {/* To-Do placeholder */}
+                   <Skeleton className="h-16 w-full" /> {/* Waste placeholder */}
+                   <Skeleton className="h-16 w-full" /> {/* Log placeholder */}
+                   <Skeleton className="h-20 w-full" /> {/* Comment placeholder */}
+               </div>
+           </div>
+       );
+   }
+  if (error && !isLoading) { // Only show error if not loading
     return <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-destructive"> {/* Error State */}
         <h2 className="text-xl mb-2">Error Loading Space</h2> <p className="mb-4">{error}</p> <Button onClick={handleBack} variant="outline">Back</Button>
     </div>;
   }
-  if (!currentSpace) {
-    return <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-muted-foreground"> {/* Not Found */}
-        <h2 className="text-xl mb-4">Space not found.</h2> <Button onClick={handleBack} variant="outline">Back</Button>
-    </div>;
-  }
+  // We already checked for !currentSpace in the loading block
 
   // Main Render
   return (
@@ -703,7 +785,7 @@ export default function SpaceDetailPage({
       <Card className="w-full max-w-4xl mb-2 card-shadow">
           <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-2 gap-y-1 text-xs items-center">
               <div className="flex items-center justify-center"> {/* Clock In/Out */}
-                 {!isClockedIn ? <Button variant="outline" size="sm" onClick={handleClockIn} className="text-xs w-full">Clock In</Button> : <Button variant="destructive" size="sm" onClick={handleClockOut} className="text-xs w-full">Clock Out</Button>}
+                 {!isClockedIn ? <Button variant="outline" size="sm" onClick={handleClockIn} disabled={modalLoading} className="text-xs w-full">Clock In</Button> : <Button variant="destructive" size="sm" onClick={handleClockOut} disabled={modalLoading} className="text-xs w-full">Clock Out</Button>}
              </div>
              <div className="text-center"><span className="font-semibold">Session:</span><br/>{formatElapsedTime(currentSessionElapsedTime)}</div>
              <div className="text-center"><span className="font-semibold">Total:</span><br/>{currentSpace.totalClockedInTime} min</div>
@@ -720,24 +802,24 @@ export default function SpaceDetailPage({
                  {/* Regular Actions */}
                  {actions.map((action) => (
                      <div key={action.id} className="flex space-x-1">
-                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 1)} disabled={!isClockedIn} className="text-xs flex-1"> {action.name} <span className="ml-auto pl-1">(+{action.points})</span> </Button>
-                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 2)} disabled={!isClockedIn} className="text-xs w-8">x2</Button>
-                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 5)} disabled={!isClockedIn} className="text-xs w-8">x5</Button>
-                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 10)} disabled={!isClockedIn} className="text-xs w-8">x10</Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 1)} disabled={!isClockedIn || modalLoading} className="text-xs flex-1"> {action.name} <span className="ml-auto pl-1">(+{action.points})</span> </Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 2)} disabled={!isClockedIn || modalLoading} className="text-xs w-8">x2</Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 5)} disabled={!isClockedIn || modalLoading} className="text-xs w-8">x5</Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleActionClick(action, 10)} disabled={!isClockedIn || modalLoading} className="text-xs w-8">x10</Button>
                      </div>
                 ))}
                  {/* Multi-Step Actions */}
                  {multiStepActions.map((action) => (
                      <div key={action.id}>
-                         <Button variant="outline" size="sm" onClick={() => handleMultiStepActionClick(action)} disabled={!isClockedIn || action.currentStepIndex >= action.steps.length} className={`text-xs w-full justify-start ${action.currentStepIndex >= action.steps.length ? 'line-through' : ''}`}>
+                         <Button variant="outline" size="sm" onClick={() => handleMultiStepActionClick(action)} disabled={!isClockedIn || action.currentStepIndex >= action.steps.length || modalLoading} className={`text-xs w-full justify-start ${action.currentStepIndex >= action.steps.length ? 'line-through' : ''}`}>
                             {action.name} <span className="ml-auto text-muted-foreground">{action.currentStepIndex >= action.steps.length ? `(Done)` : `(${action.currentStepIndex + 1}/${action.steps.length})`}</span>
                          </Button>
                      </div>
                  ))}
             </div>
              <div className="flex gap-1 mt-1"> {/* Create Action Buttons */}
-                <Button className="flex-1" size="sm" onClick={() => setIsCreateActionModalOpen(true)}> + Simple </Button>
-                <Button className="flex-1" size="sm" onClick={() => setIsCreateMultiStepActionModalOpen(true)}> + Multi-Step </Button>
+                <Button className="flex-1" size="sm" onClick={() => setIsCreateActionModalOpen(true)} disabled={modalLoading}> + Simple </Button>
+                <Button className="flex-1" size="sm" onClick={() => setIsCreateMultiStepActionModalOpen(true)} disabled={modalLoading}> + Multi-Step </Button>
             </div>
        </div>
 
@@ -748,7 +830,7 @@ export default function SpaceDetailPage({
       <div className="mt-3 w-full max-w-4xl">
         <div className="flex justify-between items-center mb-1">
              <h2 className="text-base font-bold">Waste</h2>
-             <Button size="sm" onClick={handleAddWasteClick}>Add Waste</Button>
+             <Button size="sm" onClick={handleAddWasteClick} disabled={modalLoading}>Add Waste</Button>
         </div>
         <div className="text-xs text-muted-foreground">
              {wasteEntries.length > 0 ? (
@@ -792,11 +874,11 @@ export default function SpaceDetailPage({
                      </div>
                  ) : (
                      <div className="flex gap-1">
-                         <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={triggerCommentUpload}> <Upload className="mr-1 h-3 w-3" /> Pic </Button>
-                         <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => setShowCommentCamera(true)}> <Camera className="mr-1 h-3 w-3" /> Cam </Button>
+                         <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={triggerCommentUpload} disabled={modalLoading}> <Upload className="mr-1 h-3 w-3" /> Pic </Button>
+                         <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => setShowCommentCamera(true)} disabled={modalLoading}> <Camera className="mr-1 h-3 w-3" /> Cam </Button>
                      </div>
                  )}
-                 <Button onClick={handleAddComment} size="sm" className="text-xs h-8 w-full" disabled={isLoading || (!newCommentText.trim() && !newCommentImage)}> Add Comment </Button>
+                 <Button onClick={handleAddComment} size="sm" className="text-xs h-8 w-full" disabled={modalLoading || (!newCommentText.trim() && !newCommentImage)}> Add Comment </Button>
              </div>
              {/* Hidden file input for comments */}
              <input
@@ -817,7 +899,7 @@ export default function SpaceDetailPage({
                 <div><Label htmlFor="action-desc">Description</Label><Textarea id="action-desc" value={newActionDescription} onChange={(e) => setNewActionDescription(e.target.value)} placeholder="(Optional)"/></div>
                 <div><Label htmlFor="action-points">Points *</Label><Input id="action-points" type="number" min="1" value={newActionPoints} onChange={(e) => setNewActionPoints(e.target.value)} placeholder="e.g., 5"/></div>
             </div>
-            <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="button" onClick={handleSaveAction} disabled={isLoading || !newActionName.trim()}>Create</Button></DialogFooter>
+            <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={modalLoading}>Cancel</Button></DialogClose><Button type="button" onClick={handleSaveAction} disabled={isLoading || modalLoading || !newActionName.trim()}>Create</Button></DialogFooter>
             </DialogContent>
         </Dialog>
         <Dialog open={isCreateMultiStepActionModalOpen} onOpenChange={setIsCreateMultiStepActionModalOpen}> {/* Create Multi-Step Action */}
@@ -826,15 +908,15 @@ export default function SpaceDetailPage({
                     <div><Label htmlFor="multi-action-name">Action Name *</Label><Input id="multi-action-name" value={newMultiStepActionName} onChange={(e) => setNewMultiStepActionName(e.target.value)} placeholder="e.g., Weekly Review"/></div>
                     <div><Label htmlFor="multi-action-desc">Description</Label><Textarea id="multi-action-desc" value={newMultiStepActionDescription} onChange={(e) => setNewMultiStepActionDescription(e.target.value)} placeholder="(Optional)" /></div>
                     <div><Label htmlFor="multi-action-points">Points per Step *</Label><Input id="multi-action-points" type="number" min="1" value={newMultiStepActionPoints} onChange={(e) => setNewMultiStepActionPoints(e.target.value)} placeholder="e.g., 10"/></div>
-                     <div><Label>Steps *</Label><div className="space-y-2"> {newMultiStepActionSteps.map((step, index) => (<div key={index} className="flex items-center gap-2"> <Input type="text" value={step} onChange={(e) => handleStepNameChange(index, e.target.value)} placeholder={`Step ${index + 1} Name`} className="flex-grow"/> {newMultiStepActionSteps.length > 1 && (<Button variant="ghost" size="sm" onClick={() => removeStepInput(index)} aria-label="Remove step">X</Button>)} </div>))} <Button type="button" variant="outline" size="sm" onClick={addStepInput}>+ Add Step</Button> </div></div>
+                     <div><Label>Steps *</Label><div className="space-y-2"> {newMultiStepActionSteps.map((step, index) => (<div key={index} className="flex items-center gap-2"> <Input type="text" value={step} onChange={(e) => handleStepNameChange(index, e.target.value)} placeholder={`Step ${index + 1} Name`} className="flex-grow"/> {newMultiStepActionSteps.length > 1 && (<Button variant="ghost" size="sm" onClick={() => removeStepInput(index)} aria-label="Remove step" disabled={modalLoading}>X</Button>)} </div>))} <Button type="button" variant="outline" size="sm" onClick={addStepInput} disabled={modalLoading}>+ Add Step</Button> </div></div>
                 </div>
-                <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="button" onClick={handleSaveMultiStepAction} disabled={isLoading || !newMultiStepActionName.trim() || newMultiStepActionSteps.some(s => !s.trim())}> Create </Button></DialogFooter>
+                <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={modalLoading}>Cancel</Button></DialogClose><Button type="button" onClick={handleSaveMultiStepAction} disabled={isLoading || modalLoading || !newMultiStepActionName.trim() || newMultiStepActionSteps.some(s => !s.trim())}> Create </Button></DialogFooter>
             </DialogContent>
         </Dialog>
         <Dialog open={isAddWasteModalOpen} onOpenChange={setIsAddWasteModalOpen}> {/* Add Waste */}
             <DialogContent> <DialogHeader><DialogTitle>Add Waste (TIMWOODS)</DialogTitle><DialogDescription>Select observed waste categories.</DialogDescription></DialogHeader>
             <ScrollArea className="max-h-60"> <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-1"> {timwoodsCategories.map((category) => (<Button key={category.id} variant={selectedWasteCategories.includes(category.id) ? 'default' : 'outline'} onClick={() => handleWasteCategoryClick(category.id)} size="sm" className="text-xs h-auto py-2 flex flex-col items-start"> <span className="font-semibold">{category.name} (+{category.points})</span> <span className="text-xs text-muted-foreground font-normal">{category.description}</span> </Button>))} </div> </ScrollArea>
-            <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" onClick={() => setSelectedWasteCategories([])}>Cancel</Button></DialogClose><Button type="button" onClick={handleSaveWaste} disabled={isLoading || selectedWasteCategories.length === 0}>Add Selected Waste</Button></DialogFooter>
+            <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" onClick={() => setSelectedWasteCategories([])} disabled={modalLoading}>Cancel</Button></DialogClose><Button type="button" onClick={handleSaveWaste} disabled={isLoading || modalLoading || selectedWasteCategories.length === 0}>Add Selected Waste</Button></DialogFooter>
             </DialogContent>
         </Dialog>
        <Dialog open={isLogDetailsOpen} onOpenChange={setIsLogDetailsOpen}> {/* Log Details */}

@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatShortDate } from '@/utils/dateUtils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Copy, Trash2 } from 'lucide-react'; // Removed Gamepad2 icon
+import { Copy, Trash2, Loader2 } from 'lucide-react'; // Added Loader2 icon
 
 type SortKey = "dateCreated" | "dateModified";
 
@@ -20,6 +20,7 @@ export default function Home() {
   const router = useRouter();
   const { spaces, isLoading, error, deleteSpace, loadSpaces, duplicateSpace } = useSpaceContext();
   const [sortBy, setSortBy] = useState<SortKey>("dateModified"); // Default sort by modified
+  const [loadingSpaceId, setLoadingSpaceId] = useState<string | null>(null); // Track which space is loading
 
   useEffect(() => {
     // Context handles initial load
@@ -30,10 +31,10 @@ export default function Home() {
   };
 
   const handleSpaceClick = (spaceId: string) => {
+    setLoadingSpaceId(spaceId); // Set loading state for this space
     router.push(`/space/${spaceId}`);
+    // No need to reset loadingSpaceId here, component unmounts on navigation
   };
-
-  // Removed handleGameClick as the game page is deleted
 
   const handleDeleteConfirm = async (spaceId: string) => {
     await deleteSpace(spaceId);
@@ -135,10 +136,8 @@ export default function Home() {
                     className="bg-card rounded-lg overflow-hidden shadow-md transition-shadow duration-300 hover:shadow-lg flex flex-col"
                     key={space.id}
                 >
-                    <CardHeader
-                        className="cursor-pointer p-4"
-                        onClick={() => handleSpaceClick(space.id)}
-                    >
+                    {/* Removed onClick from header, rely on button */}
+                    <CardHeader className="p-4">
                     <CardTitle className="text-xl font-bold mb-1 truncate">{space.name}</CardTitle>
                      <div className="flex space-x-2 mt-1">
                          {space.beforeImage && (
@@ -169,7 +168,7 @@ export default function Home() {
                          {/* Duplicate Button */}
                          <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-auto w-10" title="Duplicate Space">
+                                <Button variant="outline" size="icon" className="h-auto w-10" title="Duplicate Space" disabled={loadingSpaceId === space.id}>
                                     <Copy className="h-4 w-4" />
                                 </Button>
                             </AlertDialogTrigger>
@@ -192,7 +191,7 @@ export default function Home() {
                         {/* Delete Button */}
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon" className="h-auto w-10" title="Delete Space">
+                            <Button variant="destructive" size="icon" className="h-auto w-10" title="Delete Space" disabled={loadingSpaceId === space.id}>
                                 <Trash2 className="h-4 w-4" /> {/* Use Trash2 icon */}
                             </Button>
                         </AlertDialogTrigger>
@@ -220,8 +219,16 @@ export default function Home() {
                             className="flex-1"
                             onClick={() => handleSpaceClick(space.id)}
                             title="Go to Space Details"
+                            disabled={loadingSpaceId === space.id} // Disable while navigating
                          >
-                            Open Space
+                            {loadingSpaceId === space.id ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Loading...
+                                </>
+                            ) : (
+                                "Open Space"
+                            )}
                          </Button>
                      </div>
                 </Card>
