@@ -3,8 +3,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'OkapiFlow',
-    short_name: 'OkapiFlow',
+    name: 'Okapi',
+    short_name: 'Okapi',
     description: 'Gamified Process Improvement Companion',
     start_url: '/',
     display: 'standalone',

@@ -1,6 +1,6 @@
-# OkapiFlow - Gamified Process Improvement Companion
+# Okapi - Gamified Process Improvement Companion
 
-OkapiFlow is a web application designed to help you track and improve processes in a gamified way. Create "Spaces" to represent areas you want to work on, track your time, log actions, identify waste, and visualize your progress.
+Okapi is a web application designed to help you track and improve processes in a gamified way. Create "Spaces" to represent areas you want to work on, track your time, log actions, identify waste, and visualize your progress.
 
 ## Key Features
 
@@ -76,7 +76,7 @@ This application was developed with significant assistance from AI tools. AI pla
 
 ## Open Source
 
-Given the AI-assisted nature of its development and to encourage collaboration and learning, OkapiFlow is intended to be open source. Please consider adding an appropriate open-source license (e.g., MIT License) to the project.
+Given the AI-assisted nature of its development and to encourage collaboration and learning, Okapi is intended to be open source. Please consider adding an appropriate open-source license (e.g., MIT License) to the project.
 
 ```javascript
 // Example: Add MIT License section

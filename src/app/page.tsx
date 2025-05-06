@@ -59,7 +59,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-8 bg-background p-4">
       <header className="w-full text-center mb-8">
-        <h1 className="text-4xl font-bold text-primary">Welcome to OkapiFlow</h1>
+        <h1 className="text-4xl font-bold text-primary">Welcome to Okapi</h1>
         <p className="text-lg text-foreground mt-2">
           Your process improvement companion. {/* Simplified description */}
         </p>

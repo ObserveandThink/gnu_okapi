@@ -2,8 +2,8 @@
  * @fileOverview Manages the IndexedDB database connection and schema.
  */
 
-export const DB_NAME = 'okapiFlowDB';
-export const DB_VERSION = 5; // Incremented version for new store
+export const DB_NAME = 'okapiDB'; // Renamed database
+export const DB_VERSION = 5; // Keep version if schema hasn't changed significantly beyond renaming
 
 // Define object store names
 export const STORES = {
