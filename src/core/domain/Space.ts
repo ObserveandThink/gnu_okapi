@@ -14,6 +14,6 @@ export interface Space {
   totalClockedInTime: number; // Cumulative time in minutes
 
   // Fields for persisting clock state
-  isClockedIn?: boolean;
-  clockInStartTime?: Date | null;
+  isClockedIn?: boolean; // Added: Track if currently clocked into this space
+  clockInStartTime?: Date | null; // Added: Track start time if clocked in
 }

@@ -84,7 +84,7 @@ interface SpaceContextProps {
   loadSpaces: () => Promise<void>;
   loadSpaceDetails: (spaceId: string) => Promise<void>; // Loads details for a specific space
   clearCurrentSpace: () => void; // Clears the detailed view state
-  createSpace: (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => Promise<Space | undefined>;
+  createSpace: (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime' | 'isClockedIn' | 'clockInStartTime'>) => Promise<Space | undefined>;
   updateSpace: (space: Space) => Promise<void>;
   deleteSpace: (spaceId: string) => Promise<void>;
   addClockedTime: (spaceId: string, additionalMinutes: number) => Promise<void>;
@@ -232,7 +232,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
 
   // --- Data Modification Wrappers ---
 
-  const createSpace = useCallback(async (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime'>) => {
+  const createSpace = useCallback(async (spaceData: Omit<Space, 'id' | 'dateCreated' | 'dateModified' | 'totalClockedInTime' | 'isClockedIn' | 'clockInStartTime'>) => {
     return handleAsyncOperation(async () => {
         const newSpace = await spaceService.createSpace(spaceData);
          await loadSpaces(); // Reload the list to include the new space
@@ -331,7 +331,7 @@ export const SpaceProvider = ({ children }: SpaceProviderProps) => {
         }
          // Update the list of spaces as well
          setSpaces(prevSpaces => prevSpaces.map(s =>
-             s.id === spaceId ? { ...s, totalClockedInTime: updatedTotalTime, dateModified: new Date() } : s
+             s.id === spaceId ? { ...s, totalClockedInTime: (s.totalClockedInTime || 0) + additionalMinutes, dateModified: new Date() } : s
          ));
 
       }, "Updating clocked time...", "Failed to update clocked time");

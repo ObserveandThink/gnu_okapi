@@ -12,13 +12,14 @@ export class IndexedDBSpaceRepository implements ISpaceRepository {
   async getById(id: string): Promise<Space | undefined> {
     const db = await openDB();
     const space = await getById<Space>(db, STORES.SPACES, id);
-     // Ensure dates are Date objects
+     // Ensure dates are Date objects and handle new clock fields
     if (space) {
         return {
             ...space,
             dateCreated: new Date(space.dateCreated),
             dateModified: new Date(space.dateModified),
             clockInStartTime: space.clockInStartTime ? new Date(space.clockInStartTime) : null,
+            isClockedIn: space.isClockedIn ?? false, // Default to false if undefined
         };
     }
     return undefined;
@@ -27,12 +28,13 @@ export class IndexedDBSpaceRepository implements ISpaceRepository {
   async getAll(): Promise<Space[]> {
     const db = await openDB();
     const spaces = await getAll<Space>(db, STORES.SPACES);
-     // Ensure dates are Date objects
+     // Ensure dates are Date objects and handle new clock fields
     return spaces.map(s => ({
         ...s,
         dateCreated: new Date(s.dateCreated),
         dateModified: new Date(s.dateModified),
         clockInStartTime: s.clockInStartTime ? new Date(s.clockInStartTime) : null,
+        isClockedIn: s.isClockedIn ?? false, // Default to false if undefined
     }));
   }
 
@@ -45,8 +47,8 @@ export class IndexedDBSpaceRepository implements ISpaceRepository {
         dateCreated: spaceData.dateCreated || new Date(),
         dateModified: spaceData.dateModified || new Date(),
         totalClockedInTime: spaceData.totalClockedInTime ?? 0,
-        isClockedIn: spaceData.isClockedIn ?? false,
-        clockInStartTime: spaceData.clockInStartTime ? new Date(spaceData.clockInStartTime) : null,
+        isClockedIn: spaceData.isClockedIn ?? false, // Default to false
+        clockInStartTime: spaceData.clockInStartTime ? new Date(spaceData.clockInStartTime) : null, // Ensure Date or null
      };
     await addItem<Space>(db, STORES.SPACES, newSpace);
     return newSpace;
@@ -61,6 +63,7 @@ export class IndexedDBSpaceRepository implements ISpaceRepository {
          // Ensure dates are Date objects before storing
         dateCreated: new Date(space.dateCreated),
         clockInStartTime: space.clockInStartTime ? new Date(space.clockInStartTime) : null,
+        isClockedIn: space.isClockedIn ?? false, // Ensure boolean or default
     };
     await updateItem<Space>(db, STORES.SPACES, spaceToUpdate);
   }

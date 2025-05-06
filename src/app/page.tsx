@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatShortDate } from '@/utils/dateUtils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Copy, Trash2, Loader2 } from 'lucide-react'; // Added Loader2 icon
+import { cn } from "@/lib/utils"; // Import cn utility
 
 type SortKey = "dateCreated" | "dateModified";
 
@@ -133,7 +134,10 @@ export default function Home() {
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {sortedSpaces.map((space) => (
                 <Card
-                    className="bg-card rounded-lg overflow-hidden shadow-md transition-shadow duration-300 hover:shadow-lg flex flex-col"
+                    className={cn(
+                        "bg-card rounded-lg overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg flex flex-col",
+                        space.isClockedIn && "border-2 border-primary ring-2 ring-primary/50" // Highlight if clocked in
+                    )}
                     key={space.id}
                 >
                     {/* Removed onClick from header, rely on button */}
@@ -161,6 +165,7 @@ export default function Home() {
                          <p>
                             Total Time: {space.totalClockedInTime} min
                          </p>
+                         {space.isClockedIn && <p className="text-primary font-semibold">Clocked In</p>}
                     </div>
 
                     </CardContent>
