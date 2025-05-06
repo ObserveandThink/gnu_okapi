@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Use 'next/navigation' in App Router
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useSpaceContext } from '@/contexts/SpaceContext';
 import { useClock } from '@/hooks/useClock'; // Import the new hook
@@ -36,7 +36,7 @@ import { WasteTracking } from '@/components/space/WasteTracking';
 import { LogDisplay } from '@/components/space/LogDisplay';
 import { CommentSection } from '@/components/space/CommentSection';
 import { TodoListComponent } from '@/components/space/TodoListComponent'; // Assuming this was moved to components/space
-
+// Note: CameraCapture is now likely imported within CommentSection or TodoListComponent
 
 // TIMWOODS Categories - Keep here or move to a config/constants file
 const timwoodsCategories = [
@@ -137,15 +137,23 @@ export default function SpaceDetailPage({
     return wasteEntries.reduce((sum, entry) => sum + entry.points, 0);
   }, [wasteEntries]);
 
-  // Calculate Average AP per Hour based on total points and total time
+  // Calculate Average AP per Hour based on current session points and time
   const averageApPerHour = useMemo(() => {
-    if (!currentSpace || currentSpace.totalClockedInTime <= 0) {
+    if (!isClockedIn || !clockInStartTime || currentSessionElapsedTime <= 0) {
         return 0;
     }
-    const totalHours = currentSpace.totalClockedInTime / 60; // Convert total minutes to hours
-    if (totalHours <= 0) return 0;
-    return totalPoints / totalHours;
- }, [totalPoints, currentSpace?.totalClockedInTime]);
+
+    // Only consider points earned during the *current* session
+    const sessionPointEntries = logEntries.filter(
+        entry => entry.timestamp >= clockInStartTime && entry.points > 0
+    );
+    const sessionPoints = sessionPointEntries.reduce((sum, entry) => sum + entry.points, 0);
+
+    const sessionHours = currentSessionElapsedTime / 3600;
+    if (sessionHours <= 0) return 0;
+
+    return sessionPoints / sessionHours;
+ }, [logEntries, isClockedIn, clockInStartTime, currentSessionElapsedTime]);
 
    // --- Event Handlers ---
   const handleBack = () => router.push('/');

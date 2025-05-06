@@ -12,7 +12,7 @@ import { handleImageUploadUtil } from '@/utils/imageUtils';
 import { formatTime } from '@/utils/dateUtils';
 import { toast } from '@/hooks/use-toast';
 import type { Comment } from '@/core/domain/Comment';
-import { CameraCapture } from './CameraCapture'; // Assuming CameraCapture is extracted
+import { CameraCapture } from './CameraCapture'; // Import extracted CameraCapture component
 
 interface CommentSectionProps {
     comments: Comment[];
@@ -160,7 +160,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                  />
             </div>
 
-            {/* Comment Camera Capture */}
+            {/* Render CameraCapture component when showCommentCamera is true */}
             {showCommentCamera && (
                 <CameraCapture
                     onCapture={handleCommentCapture}

@@ -16,7 +16,7 @@ import { handleImageUploadUtil } from '@/utils/imageUtils';
 import { formatShortDate } from '@/utils/dateUtils';
 import { toast } from '@/hooks/use-toast';
 import type { TodoItem } from '@/core/domain/TodoItem';
-import { CameraCapture } from './CameraCapture'; // Assuming CameraCapture is also in components/space
+import { CameraCapture } from './CameraCapture'; // Import extracted CameraCapture component
 
 interface TodoListComponentProps {
     spaceId: string;
@@ -319,7 +319,7 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                  className="hidden"
              />
 
-            {/* Camera Capture Modal */}
+            {/* Render CameraCapture component when showCamera is true */}
             {showCamera && (
                 <CameraCapture
                     onCapture={handleCapture}
