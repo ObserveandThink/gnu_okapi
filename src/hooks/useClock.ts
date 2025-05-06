@@ -1,15 +1,28 @@
 /**
  * @fileOverview Custom hook for managing clock-in/out state and session timer.
+ * Integrates with SpaceContext to load and persist clock state.
  */
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from '@/hooks/use-toast';
 import type { LogEntry } from '@/core/domain/LogEntry'; // Assuming LogEntry type path
+import type { Space } from '@/core/domain/Space'; // Import Space type
+import { SpaceService } from '@/core/services/SpaceService'; // Import SpaceService
+import { repositoryFactory } from '@/infrastructure/persistence/IndexedDBRepositoryFactory'; // Import factory
 
 // Define types for the functions passed from context
 type AddLogEntryFunc = (logEntryData: Omit<LogEntry, 'id' | 'timestamp'>) => Promise<LogEntry | undefined>;
 type AddClockedTimeFunc = (spaceId: string, additionalMinutes: number) => Promise<void>;
+
+// Instantiate SpaceService here or pass it in if needed elsewhere
+const spaceService = new SpaceService(repositoryFactory.createSpaceRepository(), /* other service dependencies... */);
+
+interface UseClockProps {
+    currentSpace: Space | null; // Pass the current space object
+    addLogEntry: AddLogEntryFunc;
+    addClockedTime: AddClockedTimeFunc;
+}
 
 interface UseClockReturn {
     isClockedIn: boolean;
@@ -20,11 +33,11 @@ interface UseClockReturn {
     isClockLoading: boolean; // Loading state specific to clock actions
 }
 
-export const useClock = (
-    spaceId: string | null,
-    addLogEntry: AddLogEntryFunc,
-    addClockedTime: AddClockedTimeFunc
-): UseClockReturn => {
+export const useClock = ({
+    currentSpace,
+    addLogEntry,
+    addClockedTime
+}: UseClockProps): UseClockReturn => {
     const [isClockedIn, setIsClockedIn] = useState(false);
     const [clockInStartTime, setClockInStartTime] = useState<Date | null>(null);
     const [currentSessionElapsedTime, setCurrentSessionElapsedTime] = useState(0);
@@ -42,7 +55,6 @@ export const useClock = (
         const initialDifference = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
         setCurrentSessionElapsedTime(initialDifference);
 
-
         // Start new interval
         timerIntervalId.current = setInterval(() => {
             const now = new Date();
@@ -57,37 +69,68 @@ export const useClock = (
             clearInterval(timerIntervalId.current);
             timerIntervalId.current = null;
         }
-        setCurrentSessionElapsedTime(0); // Reset session timer display
+        // Don't reset session timer display on stop, only when clocked out completely or initializing
+        // setCurrentSessionElapsedTime(0);
     }, []);
 
-    // Cleanup timer on unmount or when clocking out
+    // Initialize state from currentSpace when it loads or changes
     useEffect(() => {
-        return () => {
+        if (currentSpace) {
+            const initialIsClockedIn = currentSpace.isClockedIn ?? false;
+            const initialStartTime = currentSpace.clockInStartTime ? new Date(currentSpace.clockInStartTime) : null;
+
+            setIsClockedIn(initialIsClockedIn);
+            setClockInStartTime(initialStartTime);
+
+            if (initialIsClockedIn && initialStartTime) {
+                startTimer(initialStartTime);
+            } else {
+                stopTimer();
+                setCurrentSessionElapsedTime(0); // Reset timer if not clocked in
+            }
+             console.log("useClock initialized:", { initialIsClockedIn, initialStartTime });
+        } else {
+            // If currentSpace is null (e.g., navigating away), reset local state
+            setIsClockedIn(false);
+            setClockInStartTime(null);
             stopTimer();
-        };
-    }, [stopTimer]);
+            setCurrentSessionElapsedTime(0);
+            console.log("useClock reset due to null currentSpace");
+        }
+
+        // Cleanup timer only when the component using the hook unmounts,
+        // not necessarily when currentSpace changes if we want persistence across navigation.
+        // However, since we re-initialize based on currentSpace, stopping here is okay.
+        // If persistence *during* navigation is needed, this cleanup needs rethinking.
+        // return () => {
+        //     stopTimer();
+        //     console.log("useClock cleanup ran.");
+        // };
+    }, [currentSpace, startTimer, stopTimer]);
 
 
     const handleClockIn = useCallback(async () => {
-        if (!spaceId || isClockedIn || isClockLoading) return;
+        if (!currentSpace?.id || isClockedIn || isClockLoading) return;
         setIsClockLoading(true);
         try {
             const now = new Date();
-            await addLogEntry({ spaceId, actionName: 'Clock In', points: 0, type: 'clockIn' });
+            await addLogEntry({ spaceId: currentSpace.id, actionName: 'Clock In', points: 0, type: 'clockIn' });
+            await spaceService.setClockInState(currentSpace.id, now); // Persist state
             setIsClockedIn(true);
             setClockInStartTime(now);
             startTimer(now); // Start the timer
             toast({ title: 'Clocked In!', description: 'Start earning points!' });
+             console.log("Clocked In:", now);
         } catch (error) {
             console.error("Clock In Error:", error);
-            toast({ title: 'Clock In Failed', description: 'Could not log clock-in event.', variant: 'destructive' });
+            toast({ title: 'Clock In Failed', description: 'Could not save clock-in state.', variant: 'destructive' });
         } finally {
             setIsClockLoading(false);
         }
-    }, [spaceId, isClockedIn, isClockLoading, addLogEntry, startTimer]);
+    }, [currentSpace, isClockedIn, isClockLoading, addLogEntry, startTimer]);
 
     const handleClockOut = useCallback(async () => {
-        if (!spaceId || !isClockedIn || !clockInStartTime || isClockLoading) return;
+        if (!currentSpace?.id || !isClockedIn || !clockInStartTime || isClockLoading) return;
         setIsClockLoading(true);
         try {
             const now = new Date();
@@ -96,11 +139,11 @@ export const useClock = (
 
             // Only add time if it's more than 0 minutes
             if (minutesClockedInThisSession > 0) {
-                 await addClockedTime(spaceId, minutesClockedInThisSession);
+                 await addClockedTime(currentSpace.id, minutesClockedInThisSession);
             }
 
             await addLogEntry({
-              spaceId: spaceId,
+              spaceId: currentSpace.id,
               actionName: 'Clock Out',
               points: 0,
               type: 'clockOut',
@@ -109,44 +152,27 @@ export const useClock = (
               minutesClockedIn: minutesClockedInThisSession,
             });
 
+            await spaceService.clearClockInState(currentSpace.id); // Persist state
+
             setIsClockedIn(false);
             setClockInStartTime(null);
             stopTimer(); // Stop the timer
+            // Keep currentSessionElapsedTime as is until component re-renders/initializes
             toast({ title: 'Clocked Out!', description: `Session time: ${minutesClockedInThisSession} min.` });
+            console.log("Clocked Out:", now, "Session duration:", minutesClockedInThisSession);
 
         } catch (error) {
              console.error("Clock Out Error:", error);
-             toast({ title: 'Clock Out Failed', description: 'Could not save session time.', variant: 'destructive' });
+             toast({ title: 'Clock Out Failed', description: 'Could not save clock-out state.', variant: 'destructive' });
         } finally {
             setIsClockLoading(false);
         }
-    }, [spaceId, isClockedIn, clockInStartTime, isClockLoading, addLogEntry, addClockedTime, stopTimer]);
+    }, [currentSpace, isClockedIn, clockInStartTime, isClockLoading, addLogEntry, addClockedTime, stopTimer]);
 
 
-    // Consider adding logic here to check the last log entry on mount
-    // to determine initial clock state if the page reloads while clocked in.
-    // This requires access to logEntries or a specific fetch function.
-    // Example (needs context/fetch function):
-    /*
-    useEffect(() => {
-        const checkInitialClockState = async () => {
-            if (!spaceId) return;
-            // Fetch the very latest log entry for the space
-            const latestEntry = await fetchLatestLogEntry(spaceId); // Needs implementation
-            if (latestEntry?.type === 'clockIn') {
-                setIsClockedIn(true);
-                const startTime = new Date(latestEntry.timestamp);
-                setClockInStartTime(startTime);
-                startTimer(startTime);
-            } else {
-                setIsClockedIn(false);
-                setClockInStartTime(null);
-            }
-        };
-        checkInitialClockState();
-    }, [spaceId, startTimer]); // Run when spaceId changes
-    */
-
+    // No cleanup needed on unmount if we want the timer to potentially continue
+    // across navigations (if state is managed globally or restored quickly).
+    // If the timer should *always* stop on unmount, uncomment the cleanup in useEffect.
 
     return {
         isClockedIn,

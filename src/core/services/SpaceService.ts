@@ -45,6 +45,8 @@ export class SpaceService {
       dateCreated: now,
       dateModified: now,
       totalClockedInTime: 0,
+      isClockedIn: false, // Default clock state
+      clockInStartTime: null, // Default clock state
     };
 
     return this.spaceRepository.add(newSpace);
@@ -56,16 +58,7 @@ export class SpaceService {
    * @returns A promise resolving to the Space or undefined if not found.
    */
   async getSpace(id: string): Promise<Space | undefined> {
-     const space = await this.spaceRepository.getById(id);
-     // Ensure dates are Date objects after retrieval
-     if (space) {
-         return {
-             ...space,
-             dateCreated: new Date(space.dateCreated),
-             dateModified: new Date(space.dateModified),
-         };
-     }
-     return undefined;
+     return this.spaceRepository.getById(id); // Repository now handles date conversion
   }
 
   /**
@@ -73,13 +66,7 @@ export class SpaceService {
    * @returns A promise resolving to an array of all Spaces.
    */
   async getAllSpaces(): Promise<Space[]> {
-    const spaces = await this.spaceRepository.getAll();
-    // Ensure dates are Date objects after retrieval
-    return spaces.map(s => ({
-        ...s,
-        dateCreated: new Date(s.dateCreated),
-        dateModified: new Date(s.dateModified),
-    }));
+    return this.spaceRepository.getAll(); // Repository now handles date conversion
   }
 
   /**
@@ -119,6 +106,44 @@ export class SpaceService {
     await this.spaceRepository.update(updatedSpace);
    }
 
+    /**
+     * Sets the clock-in state for a space.
+     * @param spaceId - The ID of the space.
+     * @param startTime - The time the user clocked in.
+     * @returns A promise resolving when the state is updated.
+     */
+    async setClockInState(spaceId: string, startTime: Date): Promise<void> {
+        const space = await this.getSpace(spaceId);
+        if (!space) {
+            throw new Error(`Space with ID ${spaceId} not found.`);
+        }
+        const updatedSpace: Space = {
+            ...space,
+            isClockedIn: true,
+            clockInStartTime: startTime,
+        };
+        await this.spaceRepository.update(updatedSpace);
+    }
+
+    /**
+     * Clears the clock-in state for a space.
+     * @param spaceId - The ID of the space.
+     * @returns A promise resolving when the state is updated.
+     */
+    async clearClockInState(spaceId: string): Promise<void> {
+        const space = await this.getSpace(spaceId);
+        if (!space) {
+            throw new Error(`Space with ID ${spaceId} not found.`);
+        }
+        const updatedSpace: Space = {
+            ...space,
+            isClockedIn: false,
+            clockInStartTime: null,
+        };
+        await this.spaceRepository.update(updatedSpace);
+    }
+
+
   /**
    * Deletes a space and all associated data (actions, logs, todos, etc.).
    * Requires other services to be injected for cascading deletes.
@@ -156,7 +181,7 @@ export class SpaceService {
   /**
    * Duplicates an existing space, including its simple and multi-step actions.
    * Does NOT duplicate logs, waste entries, comments, todos, or clocked time.
-   * Adds "(Copy)" to the name and resets dates.
+   * Adds "(Copy)" to the name and resets dates and clock state.
    * @param originalSpaceId - The ID of the space to duplicate.
    * @returns A promise resolving to the newly created duplicated Space, or undefined if the original doesn't exist.
    */
@@ -170,14 +195,18 @@ export class SpaceService {
     // 1. Create the new space data
     const now = new Date();
     const newSpaceData: Omit<Space, 'id'> = {
-      ...originalSpace, // Copy properties like description, goal, images
       name: `${originalSpace.name} (Copy)`,
+      description: originalSpace.description,
+      goal: originalSpace.goal,
+      beforeImage: originalSpace.beforeImage,
+      afterImage: originalSpace.afterImage,
       dateCreated: now,
       dateModified: now,
       totalClockedInTime: 0, // Reset clocked time
+      isClockedIn: false, // Reset clock state
+      clockInStartTime: null, // Reset clock state
     };
-    // Remove original ID before adding
-    delete (newSpaceData as any).id;
+    // ID is assigned by repository
 
     const newSpace = await this.spaceRepository.add(newSpaceData);
     const newSpaceId = newSpace.id;
@@ -186,10 +215,11 @@ export class SpaceService {
     const originalActions = await this.actionService.getActionsForSpace(originalSpaceId);
     const actionDuplicationPromises = originalActions.map(action => {
       const newActionData: Omit<Action, 'id'> = {
-        ...action,
         spaceId: newSpaceId, // Link to the new space
+        name: action.name,
+        description: action.description,
+        points: action.points,
       };
-       delete (newActionData as any).id; // Remove original ID
       return this.actionService.createAction(newActionData);
     });
 

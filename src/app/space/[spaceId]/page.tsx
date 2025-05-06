@@ -6,7 +6,7 @@
 import { useRouter } from 'next/navigation'; // Use 'next/navigation' in App Router
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useSpaceContext } from '@/contexts/SpaceContext';
-import { useClock } from '@/hooks/useClock'; // Import the new hook
+import { useClock } from '@/hooks/useClock'; // Import the hook
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ import { Camera, Trash2, Edit, Upload, X as CloseIcon, Info } from 'lucide-react
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Import Domain Models
+import type { Space } from '@/core/domain/Space'; // Import Space type
 import type { Action } from '@/core/domain/Action';
 import type { MultiStepAction, ActionStep } from '@/core/domain/MultiStepAction';
 import type { LogEntry } from '@/core/domain/LogEntry';
@@ -75,10 +76,11 @@ export default function SpaceDetailPage({
       addLogEntry,
       addWasteEntries,
       addComment,
-      addClockedTime,
+      addClockedTime, // Keep this from context
   } = useSpaceContext();
 
   // --- Clock Hook ---
+  // Pass currentSpace and context functions to the hook
   const {
     isClockedIn,
     currentSessionElapsedTime,
@@ -86,11 +88,11 @@ export default function SpaceDetailPage({
     handleClockIn,
     handleClockOut,
     isClockLoading, // Get loading state from the hook
-  } = useClock(
-    spaceId,
+  } = useClock({
+    currentSpace,
     addLogEntry,
-    addClockedTime
-  );
+    addClockedTime,
+  });
 
   // Local UI State (Modals, Input Fields)
   const [isCreateActionModalOpen, setIsCreateActionModalOpen] = useState(false);
@@ -122,7 +124,7 @@ export default function SpaceDetailPage({
      return () => {
         console.log("Effect Cleanup: Clearing current space details.");
         clearCurrentSpace();
-        // Clock hook handles its own timer cleanup
+        // Clock hook internal timer cleanup is handled within the hook itself now
      };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [spaceId]); // Dependencies: spaceId
@@ -276,13 +278,13 @@ export default function SpaceDetailPage({
       {/* Dashboard */}
       <SpaceDashboard
         isClockedIn={isClockedIn}
-        onClockIn={handleClockIn}
-        onClockOut={handleClockOut}
-        isLoading={isClockLoading || modalLoading}
+        onClockIn={handleClockIn} // Use handler from useClock
+        onClockOut={handleClockOut} // Use handler from useClock
+        isLoading={isClockLoading || modalLoading} // Combine loading states
         currentSessionElapsedTime={currentSessionElapsedTime}
-        totalClockedInTime={currentSpace.totalClockedInTime}
+        totalClockedInTime={currentSpace.totalClockedInTime} // Pass from currentSpace
         totalPoints={totalPoints}
-        averageApPerHour={averageApPerHour} // Pass the average AP/H
+        averageApPerHour={averageApPerHour} // Pass the calculated average AP/H
         totalWastePoints={totalWastePoints}
       />
 
@@ -290,7 +292,7 @@ export default function SpaceDetailPage({
        <ActionList
          actions={actions}
          multiStepActions={multiStepActions}
-         isClockedIn={isClockedIn}
+         isClockedIn={isClockedIn} // Pass from useClock
          isLoading={isLoading || modalLoading} // Pass combined loading state
          onActionClick={handleActionClick}
          onMultiStepActionClick={handleMultiStepActionClick}

@@ -12,4 +12,8 @@ export interface Space {
   dateCreated: Date;
   dateModified: Date;
   totalClockedInTime: number; // Cumulative time in minutes
+
+  // Fields for persisting clock state
+  isClockedIn?: boolean;
+  clockInStartTime?: Date | null;
 }
