@@ -63,5 +63,3 @@ export class IndexedDBTodoRepository implements ITodoRepository {
     await deleteByIndex(db, STORES.TODOS, 'spaceIdIndex', spaceId);
   }
 }
-
-    

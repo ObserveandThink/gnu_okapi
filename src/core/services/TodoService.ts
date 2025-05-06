@@ -27,7 +27,7 @@ export class TodoService {
       completed: false, // Default to false, even if not used heavily in UI
       dateCreated: new Date(),
       beforeImage: itemData.beforeImage, // Should be guaranteed by check above
-      afterImage: itemData.afterImage || null, // Ensure null if undefined
+      afterImage: itemData.afterImage || null, // Ensure null if undefined/empty
     };
 
     return this.todoRepository.add(itemToAdd);
@@ -77,5 +77,3 @@ export class TodoService {
     return this.todoRepository.deleteBySpaceId(spaceId);
   }
 }
-
-    

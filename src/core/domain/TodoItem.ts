@@ -11,5 +11,3 @@ export interface TodoItem {
   afterImage?: string | null; // Optional Data URI or URL
   dateCreated: Date;
 }
-
-    

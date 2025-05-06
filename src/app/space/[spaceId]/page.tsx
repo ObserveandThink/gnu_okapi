@@ -421,10 +421,12 @@ const TodoListComponent: React.FC<{ spaceId: string }> = ({ spaceId }) => {
 
 
 // --- Main Page Component ---
-export default function SpaceDetailPage() {
-    // Hooks and Context
-  const params = useParams();
-  const spaceId = params.spaceId as string; // Type assertion
+export default function SpaceDetailPage({
+  params,
+}: {
+  params: { spaceId: string };
+}) {
+  const { spaceId } = params; // Correctly access spaceId
   const router = useRouter();
   const {
       currentSpace,
@@ -877,5 +879,3 @@ export default function SpaceDetailPage() {
     </div>
   );
 }
-
-    
