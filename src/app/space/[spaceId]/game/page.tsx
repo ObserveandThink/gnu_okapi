@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Gamified view for a specific Space, focusing on interactive buttons.
  */
@@ -19,7 +20,7 @@ import { formatElapsedTime, formatTime, formatShortDate, formatDateTime } from '
 import { toast } from '@/hooks/use-toast';
 import { handleImageUploadUtil } from '@/utils/imageUtils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress"; // Import Progress
+import { Progress } from "@/components/ui/progress";
 
 // Import Domain Models
 import type { Action } from '@/core/domain/Action';
@@ -28,6 +29,14 @@ import type { LogEntry } from '@/core/domain/LogEntry';
 import type { WasteEntry } from '@/core/domain/WasteEntry';
 import type { Comment } from '@/core/domain/Comment';
 import type { TodoItem } from '@/core/domain/TodoItem';
+
+// Import Custom Hook
+import { useClock } from '@/hooks/useClock';
+
+// Import Extracted Components
+import GameDashboard from '@/components/GameDashboard';
+import ActionGrid from '@/components/ActionGrid';
+import QuestGrid from '@/components/QuestGrid';
 
 
 // --- Reusable Components (Modals, etc.) ---
@@ -107,36 +116,38 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
 
     // Ensure return statement directly wraps the JSX
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm">
-             <div className="bg-gray-900/80 rounded-lg p-4 max-w-lg w-full relative shadow-xl border border-blue-500/30 text-white"> {/* HUD Style: Dark, transparent bg, accent border */}
-                 <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white" onClick={onClose}>
-                    <CloseIcon className="h-6 w-6" />
-                 </Button>
-                 <h2 className="text-xl font-bold mb-4 text-center text-blue-300 font-mono uppercase tracking-wider">CAMERA</h2> {/* HUD Style: Accent color, mono font */}
-                 <div className="relative aspect-video w-full mb-4 overflow-hidden rounded-lg border-2 border-blue-400/50 shadow-inner shadow-blue-900"> {/* HUD Style: Accent border, inner shadow */}
-                    {/* Always render video tag to prevent race conditions */}
-                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                    <canvas ref={canvasRef} className="hidden" />
-                 </div>
-                  {hasCameraPermission === false && (
-                     <Alert variant="destructive" className="mb-4 bg-red-900/80 border-red-700 text-white"> {/* HUD Style */}
-                         <AlertCircle className="h-4 w-4 text-red-300"/>
-                         <AlertTitle className="font-mono uppercase">Camera Access Required</AlertTitle>
-                         <AlertDescription>
-                             Enable camera permissions and refresh.
-                         </AlertDescription>
-                     </Alert>
-                 )}
-                  {hasCameraPermission === true && (
-                      <Button onClick={handleCapture} className="w-full text-lg py-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-full shadow-lg font-mono uppercase" disabled={!stream}> {/* HUD Style: Gradient, mono font */}
-                         <Camera className="mr-2 h-5 w-5" /> CAPTURE
-                     </Button>
+         <> <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm">
+              <div className="bg-gray-900/80 rounded-lg p-4 max-w-lg w-full relative shadow-xl border border-blue-500/30 text-white"> {/* HUD Style: Dark, transparent bg, accent border */}
+                  <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white" onClick={onClose}>
+                     <CloseIcon className="h-6 w-6" />
+                  </Button>
+                  <h2 className="text-xl font-bold mb-4 text-center text-blue-300 font-mono uppercase tracking-wider">CAMERA</h2> {/* HUD Style: Accent color, mono font */}
+                  <div className="relative aspect-video w-full mb-4 overflow-hidden rounded-lg border-2 border-blue-400/50 shadow-inner shadow-blue-900"> {/* HUD Style: Accent border, inner shadow */}
+                     {/* Always render video tag to prevent race conditions */}
+                     <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                     <canvas ref={canvasRef} className="hidden" />
+                  </div>
+                   {hasCameraPermission === false && (
+                      <Alert variant="destructive" className="mb-4 bg-red-900/80 border-red-700 text-white"> {/* HUD Style */}
+                          <AlertCircle className="h-4 w-4 text-red-300"/>
+                          <AlertTitle className="font-mono uppercase">Camera Access Required</AlertTitle>
+                          <AlertDescription>
+                              Enable camera permissions and refresh.
+                          </AlertDescription>
+                      </Alert>
                   )}
-                  {hasCameraPermission === null && (
-                      <p className="text-center text-gray-400 italic animate-pulse font-mono">Requesting camera access...</p> {/* HUD Style: Mono font */}
-                  )}
-             </div>
-         </div>
+                   {hasCameraPermission === true && (
+                       <Button onClick={handleCapture} className="w-full text-lg py-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-full shadow-lg font-mono uppercase" disabled={!stream}> {/* HUD Style: Gradient, mono font */}
+                          <Camera className="mr-2 h-5 w-5" /> CAPTURE
+                      </Button>
+                   )}
+                   {hasCameraPermission === null && (
+                       <p className="text-center text-gray-400 italic animate-pulse font-mono">Requesting camera access...</p>
+                       /* HUD Style: Mono font */
+                   )}
+              </div>
+          </div>
+         </>
     );
 };
 
@@ -533,11 +544,29 @@ export default function GameSpacePage() {
       createTodoItem, updateTodoItem, deleteTodoItem
   } = useSpaceContext();
 
+  // --- Clock State (using custom hook) ---
+    const [initialClockInTime, setInitialClockInTime] = useState<Date | null>(null);
+    const [initialIsClockedIn, setInitialIsClockedIn] = useState(false);
+    const [clockInitDone, setClockInitDone] = useState(false);
+
+     useEffect(() => {
+        // Load initial clock state from localStorage only once
+        const storedClockInTime = localStorage.getItem(`clockInTime-${spaceId}`);
+        if (storedClockInTime) {
+            setInitialClockInTime(new Date(storedClockInTime));
+            setInitialIsClockedIn(true);
+        }
+        setClockInitDone(true); // Mark initialization as done
+     }, [spaceId]);
+
+    const { isClockedIn, clockInStartTime, currentSessionElapsedTime, handleClockIn, handleClockOut } = useClock({
+        spaceId,
+        initialClockInTime: initialClockInTime,
+        initialIsClockedIn: initialIsClockedIn
+    });
+
+
   // --- UI State for Game Page ---
-  const [isClockedIn, setIsClockedIn] = useState(false);
-  const [clockInStartTime, setClockInStartTime] = useState<Date | null>(null);
-  const [currentSessionElapsedTime, setCurrentSessionElapsedTime] = useState(0);
-  const [timerIntervalId, setTimerIntervalId] = useState<NodeJS.Timeout | null>(null);
   const [sessionPoints, setSessionPoints] = useState(0);
 
   // Modals visibility state
@@ -553,39 +582,13 @@ export default function GameSpacePage() {
     if (spaceId) {
       loadSpaceDetails(spaceId);
     }
-    // Check local storage for clock-in state (example - adapt as needed)
-     const storedClockInTime = localStorage.getItem(`clockInTime-${spaceId}`);
-     if (storedClockInTime) {
-         const startTime = new Date(storedClockInTime);
-         setClockInStartTime(startTime);
-         setIsClockedIn(true);
-         // Recalculate session points on load if clocked in
-         const loadedSessionPoints = logEntries
-            .filter(e => e.timestamp >= startTime && e.points > 0)
-            .reduce((sum, e) => sum + e.points, 0);
-         setSessionPoints(loadedSessionPoints);
-     }
 
     return () => {
-      if (timerIntervalId) clearInterval(timerIntervalId);
-      // Don't clearCurrentSpace here if user might navigate back quickly
+      // clearCurrentSpace(); // Context now handles this if needed, or layout controls it
     };
    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceId]); // Keep loadSpaceDetails dependency removed
+  }, [spaceId]); // Keep loadSpaceDetails dependency removed if it causes loops
 
-   // Timer effect
-   useEffect(() => {
-    if (isClockedIn && clockInStartTime) {
-        const intervalId = setInterval(() => {
-            setCurrentSessionElapsedTime(Math.floor((new Date().getTime() - clockInStartTime.getTime()) / 1000));
-        }, 1000);
-        setTimerIntervalId(intervalId);
-        return () => clearInterval(intervalId);
-    } else {
-        setCurrentSessionElapsedTime(0);
-        if (timerIntervalId) clearInterval(timerIntervalId);
-    }
-  }, [isClockedIn, clockInStartTime]);
 
   // Recalculate session points when logEntries or clockInStartTime changes while clocked in
     useEffect(() => {
@@ -595,7 +598,7 @@ export default function GameSpacePage() {
                 .reduce((sum, e) => sum + e.points, 0);
              setSessionPoints(calculatedSessionPoints);
         } else {
-            setSessionPoints(0);
+            setSessionPoints(0); // Reset session points when clocked out
         }
     }, [logEntries, isClockedIn, clockInStartTime]);
 
@@ -611,57 +614,23 @@ export default function GameSpacePage() {
   // --- Event Handlers (Game Mode Styling) ---
   const handleBackToSpace = () => router.push(`/space/${spaceId}`);
 
-  const handleClockIn = async () => {
-    if (!currentSpace) return;
-    const now = new Date();
-    setIsClockedIn(true);
-    setClockInStartTime(now);
-    setSessionPoints(0); // Reset session points on clock in
-    localStorage.setItem(`clockInTime-${spaceId}`, now.toISOString());
-    await addLogEntry({ spaceId: currentSpace.id, actionName: 'Clock In', points: 0, type: 'clockIn' });
-    toast({ title: 'Session Started!', description: 'Let the improvements begin!', className: 'bg-green-600/90 text-white border-green-700 font-mono' }); // HUD Style
-  };
-
-  const handleClockOut = async () => {
-    if (!currentSpace || !clockInStartTime) return;
-    const now = new Date();
-    setIsClockedIn(false);
-    localStorage.removeItem(`clockInTime-${spaceId}`);
-    const minutesClocked = Math.floor((now.getTime() - clockInStartTime.getTime()) / (1000 * 60));
-    await addClockedTime(currentSpace.id, minutesClocked);
-    await addLogEntry({
-      spaceId: currentSpace.id,
-      actionName: 'Clock Out',
-      points: 0,
-      type: 'clockOut',
-      clockInTime: clockInStartTime,
-      clockOutTime: now,
-      minutesClockedIn: minutesClocked,
-    });
-    setClockInStartTime(null);
-    // Session points naturally reset because clockInStartTime is null
-    toast({ title: 'Session Ended!', description: `Time: ${minutesClocked} min. Points: ${sessionPoints}. Great work!`, className: 'bg-blue-600/90 text-white border-blue-700 font-mono' }); // HUD Style
-  };
-
    const handleActionClick = async (action: Action) => { // Simplified: always x1 for game mode buttons
      if (!isClockedIn) { toast({ title: 'Clock In First!', description: 'Start your session to log actions.', variant: 'destructive', className: 'bg-red-900/80 border-red-700 text-white font-mono' }); return; } // HUD Style
      if (!currentSpace) return;
      const pointsEarned = action.points;
      await addLogEntry({ spaceId: currentSpace.id, actionName: action.name, points: pointsEarned, type: 'action' });
-     // Optimistic update for session points display
-     setSessionPoints(prev => prev + pointsEarned);
+     // Context useEffect handles recalculating sessionPoints
      toast({ title: `+${pointsEarned} AP!`, description: `Logged: ${action.name}`, className: 'bg-yellow-500/90 text-black border-yellow-600 font-mono' }); // HUD Style
    };
 
    const handleMultiStepActionClick = async (action: MultiStepAction) => {
      if (!isClockedIn) { toast({ title: 'Clock In First!', variant: 'destructive', className: 'bg-red-900/80 border-red-700 text-white font-mono' }); return; } // HUD Style
      if (action.currentStepIndex >= action.steps.length) { toast({ title: 'Quest Complete!', className: 'bg-purple-600/90 text-white border-purple-700 font-mono' }); return; } // HUD Style
-     const updatedAction = await completeMultiStepActionStep(action.id); // This already adds log entry
+     const updatedAction = await completeMultiStepActionStep(action.id); // This already adds log entry via context/service
       if (updatedAction) {
          const completedStepIndex = updatedAction.currentStepIndex - 1;
          if (completedStepIndex >= 0) {
-             // Optimistic update for session points display
-             setSessionPoints(prev => prev + updatedAction.pointsPerStep);
+             // Context useEffect handles recalculating sessionPoints
              toast({
                  title: `+${updatedAction.pointsPerStep} AP!`,
                  description: `Step Complete: ${updatedAction.steps[completedStepIndex].name}`,
@@ -671,6 +640,9 @@ export default function GameSpacePage() {
       }
    };
 
+   // --- Service Layer Callbacks ---
+   // Wrap context functions to handle UI feedback (like closing modals)
+
    const handleSaveAction = async (name: string, description: string, points: number) => {
      if (!currentSpace) return;
      const success = await createAction({ spaceId: currentSpace.id, name, description, points });
@@ -678,6 +650,7 @@ export default function GameSpacePage() {
        setIsCreateActionModalOpen(false); // Close modal on success
        toast({ title: 'New Action Added!', description: `"${name}" is ready!`, className: 'bg-teal-500/90 text-white border-teal-600 font-mono' }); // HUD Style
      }
+     // Error handling is done within the context/service
    };
 
     const handleSaveQuest = async (name: string, description: string, pointsPerStep: number, stepNames: string[]) => {
@@ -688,6 +661,7 @@ export default function GameSpacePage() {
              setIsCreateQuestModalOpen(false); // Close modal
              toast({ title: 'New Quest Added!', description: `"${name}" is available!`, className: 'bg-cyan-500/90 text-white border-cyan-600 font-mono'}); // HUD Style
          }
+          // Error handling is done within the context/service
      };
 
      const handleSaveWaste = async (selectedCategories: string[]) => {
@@ -699,8 +673,10 @@ export default function GameSpacePage() {
           toast({ title: `-${pointsLost} WP!`, description: `Logged ${added.length} waste entr${added.length > 1 ? 'ies' : 'y'}.`, variant: 'destructive', className: 'bg-red-900/80 border-red-700 text-white font-mono' }); // HUD Style
           setIsAddWasteModalOpen(false); // Close modal on success
        } else {
-          // Handle case where maybe categories were invalid or error occurred during addWasteEntries
-           toast({ title: `Log Failed`, description: `Could not log waste entries.`, variant: 'destructive', className: 'bg-red-900/80 border-red-700 text-white font-mono' }); // HUD Style
+           // Context/service handles errors, potentially show a generic fail toast if needed
+           // toast({ title: `Log Failed`, description: `Could not log waste entries.`, variant: 'destructive', className: 'bg-red-900/80 border-red-700 text-white font-mono' }); // HUD Style
+           // Optionally close modal even on failure?
+           // setIsAddWasteModalOpen(false);
        }
      };
 
@@ -709,14 +685,14 @@ export default function GameSpacePage() {
       const success = await addComment({ spaceId: currentSpace.id, text, imageUrl });
       if (success) {
           // Modal remains open to view log, user closes manually
-          // No need to close: setIsNotesModalOpen(false);
           toast({ title: "Note Logged!", className: 'bg-gray-700/90 text-white border-gray-800 font-mono' }); // HUD Style
       }
+       // Error handling is done within the context/service
     };
 
 
   // --- Render Logic ---
-  if (isLoading && !currentSpace) {
+  if (!clockInitDone || (isLoading && !currentSpace)) { // Wait for clock init and initial load
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white animate-pulse"> {/* HUD Style */}
         <Gamepad className="h-16 w-16 text-blue-500 mb-6 opacity-50" />
@@ -768,70 +744,43 @@ export default function GameSpacePage() {
                 <Button size="sm" onClick={handleClockIn} className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-full shadow-lg px-4 py-2 text-sm animate-pulse font-mono uppercase"> {/* HUD Style */}
                     <LogIn className="mr-1 h-4 w-4"/> Start
                 </Button> :
-                <Button size="sm" onClick={handleClockOut} className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-full shadow-lg px-4 py-2 text-sm font-mono uppercase"> {/* HUD Style */}
+                <Button size="sm" onClick={() => handleClockOut(sessionPoints)} className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-full shadow-lg px-4 py-2 text-sm font-mono uppercase"> {/* HUD Style */}
                     <LogOut className="mr-1 h-4 w-4"/> End
                 </Button>
             }
         </header>
 
          {/* Dashboard */}
-         <Card className="mb-4 bg-black/40 backdrop-blur-md border border-white/20 shadow-xl rounded-lg"> {/* HUD Style */}
-             <CardContent className="p-2 grid grid-cols-3 gap-x-1 gap-y-1 text-xs text-center items-center font-mono uppercase tracking-wider"> {/* HUD Style */}
-                <div className="flex flex-col items-center p-1 bg-black/20 rounded"> <span className="font-semibold text-yellow-400 text-[0.6rem]">Session</span> <span className="font-mono text-lg">{formatElapsedTime(currentSessionElapsedTime)}</span> </div>
-                <div className="flex flex-col items-center p-1 bg-black/20 rounded"> <span className="font-semibold text-blue-400 text-[0.6rem]">Total</span> <span className="font-mono text-lg">{currentSpace.totalClockedInTime}<span className="text-xs"> min</span></span> </div>
-                <div className="flex flex-col items-center p-1 bg-black/20 rounded"> <span className="font-semibold text-green-400 text-[0.6rem]">AP</span> <span className="font-mono text-lg">{totalPoints.toFixed(0)}</span> </div>
-                <div className="flex flex-col items-center p-1 bg-black/20 rounded"> <span className="font-semibold text-orange-400 text-[0.6rem]">Sess AP</span> <span className="font-mono text-lg">{sessionPoints.toFixed(0)}</span> </div> {/* Abbreviation */}
-                <div className="flex flex-col items-center p-1 bg-black/20 rounded"> <span className="font-semibold text-purple-400 text-[0.6rem]">AP/H</span> <span className="font-mono text-lg">{apPerCurrentSessionHour.toFixed(1)}</span> </div>
-                <div className="flex flex-col items-center p-1 bg-black/20 rounded"> <span className="font-semibold text-red-400 text-[0.6rem]">Waste</span> <span className="font-mono text-lg">{totalWastePoints}</span> </div>
-             </CardContent>
-         </Card>
+         <GameDashboard
+            currentSpace={currentSpace}
+            isClockedIn={isClockedIn}
+            currentSessionElapsedTime={currentSessionElapsedTime}
+            totalPoints={totalPoints}
+            sessionPoints={sessionPoints}
+            totalWastePoints={totalWastePoints}
+            apPerCurrentSessionHour={apPerCurrentSessionHour}
+         />
+
 
          {/* Main Action Grid - Interactive Button Style */}
          <ScrollArea className="flex-grow mb-4">
              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 p-1">
 
                 {/* Simple Action Buttons */}
-                {actions.map((action) => (
-                    <Button
-                        key={action.id}
-                        onClick={() => handleActionClick(action)}
-                        disabled={!isClockedIn || isLoading}
-                        variant="secondary"
-                        className="h-auto aspect-square flex flex-col items-center justify-center p-2 sm:p-4 rounded-xl shadow-lg bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-blue-400/50 hover:border-blue-300" // HUD Style: Border
-                        title={action.description}
-                    >
-                        <Zap className="h-6 w-6 sm:h-8 sm:w-8 mb-1 text-yellow-300 filter drop-shadow(0 0 3px #fde047)" /> {/* HUD Style: Glow effect */}
-                        <span className="text-sm sm:text-base font-semibold text-center break-words line-clamp-2 font-mono uppercase">{action.name}</span> {/* HUD Style */}
-                        <span className="text-xs sm:text-sm font-bold text-yellow-400 mt-1 font-mono">(+{action.points} AP)</span> {/* HUD Style */}
-                    </Button>
-                ))}
+                <ActionGrid
+                    actions={actions}
+                    onActionClick={handleActionClick}
+                    isClockedIn={isClockedIn}
+                    isLoading={isLoading}
+                 />
 
                  {/* Multi-Step Action (Quest) Buttons */}
-                 {multiStepActions.map((action) => {
-                     const isCompleted = action.currentStepIndex >= action.steps.length;
-                     const progress = isCompleted ? 100 : (action.currentStepIndex / action.steps.length) * 100;
-                     return (
-                         <Button
-                            key={action.id}
-                            onClick={() => handleMultiStepActionClick(action)}
-                            disabled={!isClockedIn || isCompleted || isLoading}
-                            variant="outline"
-                            className={`h-auto aspect-square flex flex-col items-center justify-center p-2 sm:p-4 rounded-xl shadow-lg text-white transition-all duration-200 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed relative overflow-hidden border-2 hover:border-purple-300
-                                        ${isCompleted
-                                            ? 'bg-gradient-to-br from-gray-700 to-gray-800 border-gray-600'
-                                            : 'bg-gradient-to-br from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 border-purple-500/50'}`} // HUD Style
-                            title={action.description}
-                        >
-                            <ClipboardList className="h-6 w-6 sm:h-8 sm:w-8 mb-1 text-purple-300 filter drop-shadow(0 0 3px #c084fc)" /> {/* HUD Style: Glow */}
-                            <span className="text-sm sm:text-base font-semibold text-center break-words line-clamp-2 font-mono uppercase">{action.name}</span> {/* HUD Style */}
-                            {!isCompleted && <span className="text-xs text-purple-200 mt-1 font-mono">Next: {action.steps[action.currentStepIndex].name} (+{action.pointsPerStep})</span>} {/* HUD Style */}
-                             {isCompleted && <span className="text-xs text-green-400 mt-1 font-bold font-mono">COMPLETED!</span>} {/* HUD Style */}
-                            {/* Progress Bar */}
-                            <Progress value={progress} className="absolute bottom-1 left-1 right-1 h-1.5 bg-black/30 [&>div]:bg-gradient-to-r [&>div]:from-yellow-400 [&>div]:to-orange-500" />
-                            <span className="absolute bottom-1 right-2 text-[0.6rem] font-bold text-black/70 font-mono">{action.currentStepIndex}/{action.steps.length}</span> {/* HUD Style */}
-                         </Button>
-                    );
-                })}
+                 <QuestGrid
+                    multiStepActions={multiStepActions}
+                    onQuestClick={handleMultiStepActionClick}
+                    isClockedIn={isClockedIn}
+                    isLoading={isLoading}
+                 />
 
                  {/* --- Static Action Buttons (Open Modals) --- */}
 
@@ -947,7 +896,7 @@ export default function GameSpacePage() {
                  <DialogHeader><DialogTitle className="text-2xl font-bold text-indigo-300 flex items-center gap-2 font-mono uppercase tracking-wider"><ListTodo className="h-6 w-6"/> Full Event Log</DialogTitle></DialogHeader> {/* HUD Style */}
                  <ScrollArea className="max-h-[60vh] border rounded-md border-white/10 p-2 bg-black/30 my-4">
                      {logEntries.length === 0 && <p className="text-white/70 text-sm text-center p-4 italic font-mono">No events yet.</p>} {/* HUD Style */}
-                     {logEntries.map((log) => {
+                     {logEntries.slice().sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).map((log) => { // Ensure sorting before mapping
                           let detail = log.type === 'action' ? `Action: ${log.actionName}` : log.type === 'multiStepAction' ? `Quest Step: ${log.actionName}` : log.type === 'clockIn' ? `Session Start` : log.type === 'clockOut' && log.minutesClockedIn !== undefined ? `Session End (${log.minutesClockedIn} min)` : `Session End`;
                           return <div key={log.id} className="text-xs p-1.5 border-b border-white/10 last:border-b-0 hover:bg-white/5 rounded-sm font-mono"> <span className="font-mono text-gray-400 mr-2">[{formatDateTime(log.timestamp)}]</span> <span>{detail}</span> {log.points > 0 && <span className="font-semibold text-green-400 ml-2">(+{log.points} AP)</span>} </div>; // HUD Style
                      })}
