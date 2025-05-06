@@ -18,7 +18,7 @@ interface SpaceDashboardProps {
     currentSessionElapsedTime: number;
     totalClockedInTime: number;
     totalPoints: number;
-    apPerCurrentSessionHour: number;
+    averageApPerHour: number; // Changed prop name
     totalWastePoints: number;
 }
 
@@ -30,12 +30,15 @@ export const SpaceDashboard: React.FC<SpaceDashboardProps> = ({
     currentSessionElapsedTime,
     totalClockedInTime,
     totalPoints,
-    apPerCurrentSessionHour,
+    averageApPerHour, // Use the new prop name
     totalWastePoints,
 }) => {
 
     // Helper to format numbers concisely
     const formatMetric = (value: number, precision: number = 0): string => {
+        if (value === undefined || value === null || isNaN(value)) return 'N/A'; // Handle undefined/null/NaN
+        if (!isFinite(value)) return '∞'; // Handle Infinity
+
         if (value > 1000000) return `${(value / 1000000).toFixed(1)}M`;
         if (value > 1000) return `${(value / 1000).toFixed(1)}K`;
         return value.toFixed(precision);
@@ -81,12 +84,12 @@ export const SpaceDashboard: React.FC<SpaceDashboardProps> = ({
                 isLoading={isLoading && totalPoints === 0}
              />
 
-             {/* AP/Hour */}
+             {/* AP/Hour (Average) */}
              <DashboardMetric
                  icon={Activity}
-                 label="AP/H"
-                 value={formatMetric(apPerCurrentSessionHour, 1)}
-                 isLoading={isLoading && apPerCurrentSessionHour === 0 && isClockedIn} // Show skeleton if clocked in but rate is 0
+                 label="Avg AP/H" // Updated label
+                 value={formatMetric(averageApPerHour, 1)} // Use the average value
+                 isLoading={isLoading && totalClockedInTime === 0} // Skeleton when total time is 0
              />
 
              {/* Waste Points */}

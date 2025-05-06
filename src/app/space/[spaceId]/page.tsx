@@ -137,19 +137,15 @@ export default function SpaceDetailPage({
     return wasteEntries.reduce((sum, entry) => sum + entry.points, 0);
   }, [wasteEntries]);
 
-  const apPerCurrentSessionHour = useMemo(() => {
-    if (!isClockedIn || !clockInStartTime || currentSessionElapsedTime <= 0) {
+  // Calculate Average AP per Hour based on total points and total time
+  const averageApPerHour = useMemo(() => {
+    if (!currentSpace || currentSpace.totalClockedInTime <= 0) {
         return 0;
     }
-    // Only consider points earned during the *current* session
-    const sessionPointEntries = logEntries.filter(
-        entry => entry.timestamp >= clockInStartTime && entry.points > 0
-    );
-    const sessionPoints = sessionPointEntries.reduce((sum, entry) => sum + entry.points, 0);
-    const sessionHours = currentSessionElapsedTime / 3600;
-    if (sessionHours <= 0) return 0;
-    return sessionPoints / sessionHours;
- }, [logEntries, isClockedIn, clockInStartTime, currentSessionElapsedTime]);
+    const totalHours = currentSpace.totalClockedInTime / 60; // Convert total minutes to hours
+    if (totalHours <= 0) return 0;
+    return totalPoints / totalHours;
+ }, [totalPoints, currentSpace?.totalClockedInTime]);
 
    // --- Event Handlers ---
   const handleBack = () => router.push('/');
@@ -278,7 +274,7 @@ export default function SpaceDetailPage({
         currentSessionElapsedTime={currentSessionElapsedTime}
         totalClockedInTime={currentSpace.totalClockedInTime}
         totalPoints={totalPoints}
-        apPerCurrentSessionHour={apPerCurrentSessionHour}
+        averageApPerHour={averageApPerHour} // Pass the average AP/H
         totalWastePoints={totalWastePoints}
       />
 
