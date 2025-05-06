@@ -12,13 +12,13 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatShortDate } from '@/utils/dateUtils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Copy, Gamepad2 } from 'lucide-react'; // Import Copy and Gamepad2 icons
+import { Copy, Trash2 } from 'lucide-react'; // Removed Gamepad2 icon
 
 type SortKey = "dateCreated" | "dateModified";
 
 export default function Home() {
   const router = useRouter();
-  const { spaces, isLoading, error, deleteSpace, loadSpaces, duplicateSpace } = useSpaceContext(); // Add duplicateSpace
+  const { spaces, isLoading, error, deleteSpace, loadSpaces, duplicateSpace } = useSpaceContext();
   const [sortBy, setSortBy] = useState<SortKey>("dateModified"); // Default sort by modified
 
   useEffect(() => {
@@ -33,9 +33,7 @@ export default function Home() {
     router.push(`/space/${spaceId}`);
   };
 
-  const handleGameClick = (spaceId: string) => {
-    router.push(`/space/${spaceId}/game`);
-  };
+  // Removed handleGameClick as the game page is deleted
 
   const handleDeleteConfirm = async (spaceId: string) => {
     await deleteSpace(spaceId);
@@ -61,7 +59,7 @@ export default function Home() {
       <header className="w-full text-center mb-8">
         <h1 className="text-4xl font-bold text-primary">Welcome to OkapiFlow</h1>
         <p className="text-lg text-foreground mt-2">
-          Your gamified process improvement companion.
+          Your process improvement companion. {/* Simplified description */}
         </p>
       </header>
 
@@ -168,17 +166,6 @@ export default function Home() {
 
                     </CardContent>
                      <div className="p-4 pt-0 mt-auto flex gap-2 items-stretch"> {/* Container for buttons */}
-                         {/* Game Button */}
-                         <Button
-                            variant="secondary"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => handleGameClick(space.id)}
-                            title="Go to Gamified View"
-                         >
-                            <Gamepad2 className="mr-2 h-4 w-4" /> Play
-                         </Button>
-
                          {/* Duplicate Button */}
                          <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -206,7 +193,7 @@ export default function Home() {
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
                             <Button variant="destructive" size="icon" className="h-auto w-10" title="Delete Space">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                                <Trash2 className="h-4 w-4" /> {/* Use Trash2 icon */}
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -225,6 +212,17 @@ export default function Home() {
                              </AlertDialogFooter>
                         </AlertDialogContent>
                         </AlertDialog>
+
+                         {/* Button to go to the space details (occupies remaining space) */}
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleSpaceClick(space.id)}
+                            title="Go to Space Details"
+                         >
+                            Open Space
+                         </Button>
                      </div>
                 </Card>
                 ))}
