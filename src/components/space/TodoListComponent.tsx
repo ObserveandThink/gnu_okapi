@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter as AlertDialogCompletionFooter, AlertDialogHeader as AlertDialogCompletionHeader, AlertDialogTitle as AlertDialogCompletionTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+// Import missing AlertDialog components
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit, Check, Upload, Camera, X as CloseIcon, Trash2 } from 'lucide-react'; // Added Check, Trash2
 import { useSpaceContext } from '@/contexts/SpaceContext';
@@ -174,13 +175,18 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
         }
     };
 
-    // Separate function for actual deletion (can be triggered from edit modal or somewhere else if needed)
+    // Separate function for actual deletion (can be triggered from edit modal)
     const handleConfirmDelete = async (id: string) => {
         if (isContextLoading || modalLoading) return;
-        await deleteTodoItem(id);
-        // Toast is handled within context/service layer
-        // Optionally close any modals if deletion happens from there
-        if (editingTodo?.id === id) closeModal();
+        setModalLoading(true); // Indicate loading during delete
+        try {
+             await deleteTodoItem(id);
+             // Toast is handled within context/service layer
+             // Optionally close any modals if deletion happens from there
+             if (editingTodo?.id === id) closeModal();
+        } finally {
+             setModalLoading(false);
+        }
     };
 
 
@@ -252,7 +258,7 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                                     >
                                         <Edit className="h-4 w-4" />
                                     </Button>
-                                    {/* Changed Trash2 to Check for completion trigger */}
+                                    {/* Trigger for completing task */}
                                     <Button
                                         variant="secondary"
                                         size="icon"
@@ -265,37 +271,22 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                                     </Button>
                                 </div>
                              )}
-                              {item.completed && ( // Optional: Show delete for completed items?
+                             {/* Remove delete button from here, moved to Edit modal */}
+                             {/*
+                              {item.completed && (
                                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center gap-2">
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                            <Button
-                                                variant="destructive"
-                                                size="icon"
-                                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                aria-label="Delete Task Permanently"
-                                                disabled={isContextLoading || modalLoading}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <Button variant="destructive" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Delete Task Permanently" disabled={isContextLoading || modalLoading}> <Trash2 className="h-4 w-4" /> </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Delete Task Permanently?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the task "{item.description}".
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel disabled={modalLoading}>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleConfirmDelete(item.id)} disabled={modalLoading}>
-                                                    {modalLoading ? 'Deleting...' : 'Delete'}
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
+                                            <AlertDialogHeader> <AlertDialogTitle>Delete Task Permanently?</AlertDialogTitle> <AlertDialogDescription> This action cannot be undone. This will permanently delete the task "{item.description}". </AlertDialogDescription> </AlertDialogHeader>
+                                            <AlertDialogFooter> <AlertDialogCancel disabled={modalLoading}>Cancel</AlertDialogCancel> <AlertDialogAction onClick={() => handleConfirmDelete(item.id)} disabled={modalLoading}> {modalLoading ? 'Deleting...' : 'Delete'} </AlertDialogAction> </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 </div>
                               )}
+                              */}
                         </Card>
                      ))}
                  </div>
@@ -371,11 +362,14 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                              )}
                          </div>
                     </div>
-                    <DialogFooter>
-                        {editingTodo && ( // Show delete button only in edit mode
+                    <DialogFooter className="sm:justify-between"> {/* Adjust footer alignment */}
+                        {/* Delete Button moved here */}
+                        {editingTodo && (
                            <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button type="button" variant="destructive" disabled={modalLoading}>Delete Permanently</Button>
+                                    <Button type="button" variant="destructive" className="mr-auto" disabled={modalLoading}> {/* Added mr-auto */}
+                                         <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
@@ -393,16 +387,20 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                                 </AlertDialogContent>
                            </AlertDialog>
                         )}
-                        <DialogClose asChild>
-                            <Button type="button" variant="secondary" onClick={closeModal} disabled={modalLoading}>Cancel</Button>
-                        </DialogClose>
-                        <Button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={isContextLoading || modalLoading || !description.trim()}
-                        >
-                            {modalLoading ? 'Saving...' : (editingTodo ? 'Save Changes' : 'Add Task')}
-                        </Button>
+                         {!editingTodo && <div />} {/* Placeholder to keep alignment */}
+
+                        <div className="flex gap-2"> {/* Group cancel and save buttons */}
+                             <DialogClose asChild>
+                                <Button type="button" variant="secondary" onClick={closeModal} disabled={modalLoading}>Cancel</Button>
+                             </DialogClose>
+                             <Button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isContextLoading || modalLoading || !description.trim()}
+                             >
+                                {modalLoading ? 'Saving...' : (editingTodo ? 'Save Changes' : 'Add Task')}
+                             </Button>
+                        </div>
                     </DialogFooter>
                      {/* Render CameraCapture component inside the modal when showCamera is true */}
                      {showCamera && showCamera !== 'completionAfter' && ( // Don't show inside completion dialog
@@ -478,3 +476,4 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
         </div>
     );
 };
+
