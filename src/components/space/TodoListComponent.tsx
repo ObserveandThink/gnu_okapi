@@ -107,10 +107,7 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
              toast({ title: "Validation Error", description: "Description is required.", variant: "destructive" });
              return;
         }
-        if (!beforeImage) {
-            toast({ title: "Validation Error", description: `Before image is required${editingTodo ? ' and cannot be removed.' : '.'}`, variant: "destructive" });
-            return;
-        }
+        // Removed beforeImage validation
 
         setModalLoading(true);
 
@@ -119,7 +116,7 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                 await updateTodoItem({
                     ...editingTodo,
                     description: description.trim(),
-                    beforeImage: beforeImage, // Ensure before image is passed
+                    beforeImage: beforeImage,
                     afterImage: afterImage,
                 });
                 toast({ title: "Task Updated" });
@@ -237,21 +234,20 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="Task description"
+                                required
                             />
                         </div>
 
                         {/* Before Image Section */}
                         <div className="space-y-2">
-                            <Label>Before Image *</Label>
+                            <Label>Before Image</Label> {/* Removed asterisk */}
                             {beforeImage ? (
                                 <div className="relative">
                                     <img src={beforeImage} alt="Before preview" className="rounded max-h-40 object-cover w-full" />
-                                    {/* Allow removing only if NOT editing or if adding new */}
-                                     { !editingTodo && (
-                                         <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-white/70 hover:bg-white" onClick={() => setBeforeImage(null)} disabled={modalLoading}>
-                                             <CloseIcon className="h-4 w-4 text-destructive" />
-                                         </Button>
-                                     )}
+                                    {/* Allow removing always */}
+                                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-white/70 hover:bg-white" onClick={() => setBeforeImage(null)} disabled={modalLoading}>
+                                        <CloseIcon className="h-4 w-4 text-destructive" />
+                                    </Button>
                                      {/* Add button to change image */}
                                      <div className="absolute bottom-1 left-1 flex gap-1">
                                         <Button variant="outline" size="sm" className="h-6 px-2 text-xs bg-white/70" onClick={() => triggerFileUpload('before')} disabled={modalLoading}>Change</Button>
@@ -302,11 +298,18 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                         <Button
                             type="button"
                             onClick={handleSave}
-                            disabled={isContextLoading || modalLoading || !description.trim() || !beforeImage}
+                            disabled={isContextLoading || modalLoading || !description.trim()} // Removed beforeImage from disable condition
                         >
                             {modalLoading ? 'Saving...' : (editingTodo ? 'Save Changes' : 'Add Task')}
                         </Button>
                     </DialogFooter>
+                     {/* Render CameraCapture component inside the modal when showCamera is true */}
+                     {showCamera && (
+                        <CameraCapture
+                            onCapture={handleCapture}
+                            onClose={() => setShowCamera(false)}
+                        />
+                     )}
                 </DialogContent>
             </Dialog>
 
@@ -319,13 +322,8 @@ export const TodoListComponent: React.FC<TodoListComponentProps> = ({ spaceId })
                  className="hidden"
              />
 
-            {/* Render CameraCapture component when showCamera is true */}
-            {showCamera && (
-                <CameraCapture
-                    onCapture={handleCapture}
-                    onClose={() => setShowCamera(false)}
-                />
-            )}
+            {/* Removed CameraCapture from outside the modal */}
+
         </div>
     );
 };

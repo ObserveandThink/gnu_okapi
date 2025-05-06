@@ -18,15 +18,13 @@ export class TodoService {
     if (!itemData.description.trim()) {
       throw new Error("To-Do description cannot be empty.");
     }
-    if (!itemData.beforeImage) {
-       throw new Error("Before image is required for a To-Do item.");
-    }
+    // Removed validation requiring beforeImage
 
     const itemToAdd: Omit<TodoItem, 'id'> = {
       ...itemData,
       completed: false, // Default to false, even if not used heavily in UI
       dateCreated: new Date(),
-      beforeImage: itemData.beforeImage, // Should be guaranteed by check above
+      beforeImage: itemData.beforeImage || null, // Ensure null if undefined/empty
       afterImage: itemData.afterImage || null, // Ensure null if undefined/empty
     };
 
@@ -51,9 +49,7 @@ export class TodoService {
     if (!item.description.trim()) {
         throw new Error("To-Do description cannot be empty.");
     }
-    if (!item.beforeImage) {
-        throw new Error("Before image cannot be removed from an existing To-Do item.");
-     }
+    // Removed validation requiring beforeImage
     // Add validation or business rules for updating if needed.
     return this.todoRepository.update(item);
   }

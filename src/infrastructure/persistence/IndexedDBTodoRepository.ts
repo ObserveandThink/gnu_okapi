@@ -33,8 +33,7 @@ export class IndexedDBTodoRepository implements ITodoRepository {
         ...itemData,
         id: uuidv4(),
         dateCreated: itemData.dateCreated || new Date(), // Ensure timestamp exists
-        // beforeImage should be present based on service validation
-        beforeImage: itemData.beforeImage, // Keep as is
+        beforeImage: itemData.beforeImage || null, // Handle potentially null beforeImage
         afterImage: itemData.afterImage || null, // Ensure null if undefined/empty
     };
     await addItem<TodoItem>(db, STORES.TODOS, newItem);
@@ -47,7 +46,7 @@ export class IndexedDBTodoRepository implements ITodoRepository {
     const itemToUpdate = {
         ...item,
         dateCreated: new Date(item.dateCreated),
-        beforeImage: item.beforeImage, // Should exist
+        beforeImage: item.beforeImage || null, // Handle potentially null beforeImage
         afterImage: item.afterImage || null,
     };
     await updateItem<TodoItem>(db, STORES.TODOS, itemToUpdate);

@@ -188,7 +188,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 p-4">
+        // Increase z-index to ensure it appears above the dialog (default z-50)
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-[60] p-4">
             <div className="bg-background rounded-lg p-4 max-w-lg w-full relative">
                 <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10" onClick={onClose}>
                     <CloseIcon className="h-5 w-5" />

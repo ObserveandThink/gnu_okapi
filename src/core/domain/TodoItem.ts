@@ -7,7 +7,7 @@ export interface TodoItem {
   spaceId: string; // Foreign key linking to Space
   description: string;
   completed: boolean; // Kept for potential future use, but UI focuses on images
-  beforeImage: string | null; // Mandatory Data URI or URL
+  beforeImage: string | null; // Make explicitly nullable
   afterImage?: string | null; // Optional Data URI or URL
   dateCreated: Date;
 }
